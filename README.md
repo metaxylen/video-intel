@@ -68,6 +68,48 @@ yt-captions-md --file urls.txt
 yt-captions-md --lang tr,en --timestamps --out ~/yt-transcripts URL
 ```
 
+### Calling from another agent or terminal
+
+An agent with shell access can run this tool directly. After the global install
+above, it can call the following command from any working directory:
+
+```bash
+yt-captions-md --lang tr,en --timestamps \
+  --out "$HOME/yt-transcripts" \
+  "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+Replace `VIDEO_ID` with the actual video ID. Keep the URL quoted so shell
+characters such as `&` are passed to the tool correctly.
+
+If the tool is installed in the repo's `.venv` instead, use the executable's
+absolute path. This works without activating the virtual environment or changing
+the agent's working directory:
+
+```bash
+"/absolute/path/to/yt-captions-md/.venv/bin/yt-captions-md" \
+  --lang tr,en --timestamps \
+  --out "/absolute/path/to/transcripts" \
+  "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+Replace both example paths with paths on the agent's machine. The checkout and
+its installed dependencies must be accessible in that agent's environment.
+Use an absolute `--out` path to choose where the Markdown files are saved;
+otherwise the default `output` folder is relative to the working directory
+(unless `YT_CAPTIONS_OUT` is set).
+
+Example instruction to give another agent:
+
+> Run `/absolute/path/to/yt-captions-md/.venv/bin/yt-captions-md` with the supplied
+> YouTube URL, `--lang tr,en --timestamps`, and
+> `--out /absolute/path/to/transcripts`. Read the generated Markdown file from
+> the path printed in the `OK` message.
+
+Use `--help` to inspect the available options. The command exits with `0` when
+all videos succeed and `1` when any video fails. It prints successful file paths
+as `OK URL -> path` and reports failures as `FAIL URL: reason`.
+
 ### Options
 
 | Flag | Description |
