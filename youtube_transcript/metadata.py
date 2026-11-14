@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import yt_dlp
-
 
 @dataclass
 class VideoMetadata:
@@ -25,6 +23,8 @@ def fetch_metadata(video_id: str) -> VideoMetadata:
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
     try:
+        import yt_dlp
+
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception:

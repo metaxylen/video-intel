@@ -16,6 +16,13 @@ dependencies = [
 
 [project.scripts]
 yt-captions-md = "youtube_transcript.cli:main"
+video-intel = "video_intel.cli:main"
+
+[project.optional-dependencies]
+asr = ["mlx-whisper; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [tool.setuptools.packages.find]
-include = ["youtube_transcript*"]
+include = ["youtube_transcript*", "video_intel*"]
+
+[tool.setuptools.package-data]
+video_intel = ["schema/*.json"]

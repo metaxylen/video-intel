@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Video Intel analysis v1",
+  "type": "object",
+  "required": ["schema_version", "video", "transcript_source", "asr_model", "lenses", "caveats"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "video": {
+      "type": "object",
+      "required": ["title", "webpage_url"],
+      "properties": {
+        "id": {"type": "string"},
+        "title": {"type": "string"},
+        "webpage_url": {"type": "string", "format": "uri"},
+        "platform": {"enum": ["youtube", "instagram", "x", "tiktok", "other"]},
+        "uploader": {"type": ["string", "null"]},
+        "channel": {"type": ["string", "null"]},
+        "upload_date": {"type": ["string", "null"]},
+        "duration": {"type": ["number", "null"], "minimum": 0},
+        "description": {"type": ["string", "null"]},
+        "view_count": {"type": ["integer", "null"], "minimum": 0},
+        "like_count": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "transcript_source": {"enum": ["captions-manual", "captions-auto", "asr"]},
+    "asr_model": {"type": ["string", "null"]},
+    "lenses": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "object",
+          "required": ["tldr", "key_points", "audience"],
+          "properties": {
+            "tldr": {"type": "string"},
+            "key_points": {"type": "array", "items": {"type": "string"}},
+            "audience": {"type": ["string", "null"]}
+          }
+        },
+        "moments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["t", "title", "note"],
+            "properties": {
+              "t": {"type": "number", "minimum": 0},
+              "title": {"type": "string"},
+              "note": {"type": "string"}
+            }
+          }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "claim_reviewed", "quote", "t", "kind", "verdict", "rating", "confidence", "rationale", "evidence"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "claim_reviewed": {"type": "string", "maxLength": 75},
+              "quote": {"type": "string"},
+              "t": {"type": "number", "minimum": 0},
+              "kind": {"enum": ["fact", "opinion", "prediction", "advice"]},
+              "verdict": {"enum": ["true", "mostly-true", "half-true", "mostly-false", "false", "not-enough-evidence", "not-checkable"]},
+              "rating": {"type": ["integer", "null"], "minimum": 1, "maximum": 5},
+              "confidence": {"enum": ["low", "medium", "high"]},
+              "rationale": {"type": "string"},
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["url", "publisher", "published", "retrieved", "snippet"],
+                  "properties": {
+                    "url": {"type": "string", "format": "uri"},
+                    "publisher": {"type": "string"},
+                    "published": {"type": ["string", "null"]},
+                    "retrieved": {"type": "string", "format": "date"},
+                    "snippet": {"type": "string", "x-maxWords": 25, "pattern": "^\\s*(?:\\S+(?:\\s+|$)){0,25}$"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "caveats": {"type": "array", "items": {"type": "string"}}
+  }
+}

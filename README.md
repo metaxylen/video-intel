@@ -145,6 +145,8 @@ Transcript body here, one paragraph per line without blank lines between them...
 │   ├── markdown.py         # Merge logic and document format
 │   ├── files.py            # Filename sanitization and writes
 │   └── cli.py              # CLI implementation
+├── video_intel/            # Multi-platform fetch and offline report commands
+│   └── schema/             # Bundled analysis v1 JSON schema
 ├── tests/
 ├── pyproject.toml
 └── requirements.txt
@@ -159,6 +161,108 @@ python -m unittest discover -s tests -v
 ## License
 
 [MIT](LICENSE)
+
+## video-intel
+
+`video-intel` adds multi-platform transcript acquisition and offline analysis
+reports. `yt-captions-md` continues to work as before. Supported platforms include
+YouTube, Instagram, X/Twitter, TikTok, and other single-video yt-dlp URLs.
+
+```bash
+video-intel fetch --lang tr,en "https://www.youtube.com/watch?v=VIDEO_ID"
+video-intel fetch --asr never --out ./video-reports URL1 URL2
+video-intel fetch --asr force --asr-lang tr --keep-audio URL
+# Equivalent from a checkout, without installing the console script:
+python -m video_intel fetch --lang tr,en URL
+```
+
+Acquisition tries the existing YouTube caption API first, then yt-dlp manual
+subtitles or automatic captions (VTT/srv3), then local speech recognition (ASR).
+`--lang` lists preferred caption languages; `--asr auto|force|never` controls
+fallback, and `--asr-lang auto|tr|en` controls speech recognition. Manual captions
+are preferred within each caption provider.
+
+ASR requires Apple Silicon, `ffmpeg` on `PATH`, and the optional extra:
+
+```bash
+uv tool install --editable '.[asr]' --force
+```
+
+The ASR model is explicitly `mlx-community/whisper-large-v3-turbo`, never Whisper's
+tiny default. An existing model cache is reused; the first uncached use may
+download model weights. ASR audio is converted to 16 kHz mono WAV and cleaned up
+on both success and failure, unless `--keep-audio` retains it in the run's `audio/`
+folder. Without the extra, caption acquisition and report rendering still work;
+an ASR attempt reports an actionable `NO_TRANSCRIPT` error.
+
+Each fetch reserves a new `YYYY-MM-DD-<platform>-<slug>/` directory, appending a
+numeric suffix on collisions. It contains `meta.json`, timestamped
+`transcript.json` segments (`start`, `end`, `text`), and merged `transcript.md`.
+The output root is `--out`, then `VIDEO_INTEL_OUT`, then `~/video-reports`.
+Interrupted or failed ASR runs can leave a reserved directory; retrying creates
+a new directory without overwriting it.
+
+Cookies are disabled by default. Explicitly opt in only when appropriate:
+
+```bash
+video-intel fetch --cookies-from-browser 'chrome:Profile 1' URL
+```
+
+This forwards yt-dlp's `BROWSER[+KEYRING][:PROFILE][::CONTAINER]` syntax.
+Using a logged-in account may expose it to platform restrictions. Failures use
+`LOGIN_REQUIRED`, `RATE_LIMITED`, `UNAVAILABLE`, or `NO_TRANSCRIPT` codes.
+Transient network failures retry with backoff. Each URL prints `OK URL -> RUN_DIR`
+or `FAIL URL ERROR_CODE MESSAGE`, followed by a `Summary:` line. One failed URL
+makes the batch exit with status 1; later URLs still run.
+
+### Analysis and reports
+
+Part A does not generate analyses or perform web fact-checking. An agent or a
+human writes `analysis.json` inside the run directory using the shipped
+[v1 schema](video_intel/schema/analysis.schema.json). Minimal example (video
+metadata is merged from `meta.json`):
+
+```json
+{
+  "schema_version": 1,
+  "transcript_source": "captions-manual",
+  "asr_model": null,
+  "lenses": {
+    "summary": {
+      "tldr": "A short, transcript-grounded summary.",
+      "key_points": ["The main takeaway."],
+      "audience": null
+    },
+    "moments": [{"t": 65, "title": "Key moment", "note": "Why it matters."}],
+    "claims": []
+  },
+  "caveats": []
+}
+```
+
+```bash
+video-intel report ./video-reports/YYYY-MM-DD-youtube-title
+python -m video_intel report ./video-reports/YYYY-MM-DD-youtube-title
+```
+
+Validation uses a small built-in validator, with no `jsonschema` dependency.
+Validation errors exit nonzero before writing reports. Known lenses (`summary`,
+`moments`, `claims`) receive dedicated sections; future lenses render recursively
+as keys and lists. Claim titles are limited to 75 characters and evidence snippets
+to 25 words, with dates, verdicts, ratings, and confidence validated.
+
+`report.html` uses inline CSS, system fonts, automatic light/dark colours, and a
+responsive layout for 390px screens. It makes no external resource requests.
+Transcript and claim text are escaped, source links use HTTP(S), and timestamps
+link to the source (`&t=` on YouTube). `report.md` carries the same analysis,
+evidence, and transcript. Report generation replaces generated report files but
+does not modify the input analysis, metadata, or transcript.
+
+Run all tests without network access (yt-dlp and ASR integrations are mocked):
+
+```bash
+python3 -m pytest -q
+```
 
 ## Note
 

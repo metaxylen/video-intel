@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Sequence
 
 from youtube_transcript_api import (
@@ -32,6 +32,7 @@ class FetchedTranscript:
     language: str
     is_generated: bool
     text: str
+    segments: list[dict] = field(default_factory=list)
 
 
 def _match_lang(language_code: str, lang: str) -> bool:
@@ -90,6 +91,12 @@ def fetch_transcript_with_retry(
                 raise TranscriptError("no transcript available for this video")
 
             fetched = chosen.fetch()
+            raw_segments = [
+                {"start": float(s.start),
+                 "end": float(s.start) + float(s.duration),
+                 "text": str(s.text or "")}
+                for s in fetched
+            ]
             segments = [
                 CaptionSegment(start=float(s.start), text=str(s.text or ""))
                 for s in fetched
@@ -99,17 +106,18 @@ def fetch_transcript_with_retry(
                 language=fetched.language_code,
                 is_generated=fetched.is_generated,
                 text=body,
+                segments=raw_segments,
             )
         except TranscriptError:
             raise
-        except CouldNotRetrieveTranscript as e:
-            raise _map_could_not_retrieve(e)
         except (YouTubeRequestFailed, RequestBlocked) as e:
             last_error = e
             if attempt < max_retries - 1:
                 sleep_fn(2 ** attempt)
                 continue
             raise TranscriptError(f"network or rate limit error after retries: {e}")
+        except CouldNotRetrieveTranscript as e:
+            raise _map_could_not_retrieve(e)
         except Exception as e:
             last_error = e
             if attempt < max_retries - 1:
