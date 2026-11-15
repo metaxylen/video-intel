@@ -39,6 +39,7 @@ def _seconds(value: str) -> float:
 def parse_vtt(payload: str) -> list[dict]:
     segments = []
     payload = payload.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+    previous_lines, previous_end = [], -1.0
     for block in re.split(r"\n\s*\n", payload):
         lines = block.strip().splitlines()
         if not lines or lines[0].startswith(("WEBVTT", "NOTE", "STYLE", "REGION")):
@@ -52,9 +53,19 @@ def parse_vtt(payload: str) -> list[dict]:
                 end = _seconds(end.strip().split()[0])
             except (ValueError, IndexError):
                 break
-            text = clean_text(" ".join(lines[index + 1:]))
-            if text and end >= start:
-                segments.append({"start": start, "end": end, "text": text})
+            cue_lines = [clean_text(value) for value in lines[index + 1:]]
+            cue_lines = [value for value in cue_lines if value]
+            if end >= start:
+                fresh = cue_lines
+                if start <= previous_end + 0.02:
+                    for overlap in range(min(len(previous_lines), len(cue_lines)), 0, -1):
+                        if previous_lines[-overlap:] == cue_lines[:overlap]:
+                            fresh = cue_lines[overlap:]
+                            break
+                text = " ".join(fresh)
+                if text:
+                    segments.append({"start": start, "end": end, "text": text})
+                previous_lines, previous_end = cue_lines, end
             break
     return segments
 

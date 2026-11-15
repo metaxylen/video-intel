@@ -1,4 +1,4 @@
-"""Offline expansion regressions: subprocess/yt-dlp are mocked throughout."""
+"""Pytest-only expansion cases; this directory is excluded from unittest discovery."""
 
 import contextlib
 import copy
@@ -122,14 +122,16 @@ def test_caption_window_and_frame_dispatch(tmp_path):
     assert [(s['start'],s['end']) for s in value['segments']] == [(10,13),(15,20)]
     assert 'before' not in (run/'transcript.md').read_text()
     assert '[00:10]' in (run/'transcript.md').read_text()
-    extract.assert_called_once_with(run,cookies=None)
+    extract.assert_called_once()
+    assert extract.call_args.args[0].name.startswith(".run-")
+    assert extract.call_args.kwargs == {"cookies": None}
     assert captions['segments'][1]['start'] == 9  # No mutation of shared caption data.
 
 
 def test_asr_window_is_sliced_and_rebased(tmp_path):
     module = SimpleNamespace(transcribe=Mock(return_value={'language':'en','segments':[{'start':1,'end':4,'text':'Slice'}]}))
     ydl = MagicMock()
-    ydl.__enter__.return_value.extract_info.return_value = {'id':'v'}
+    ydl.__enter__.return_value.extract_info.return_value = {'id':'v','acodec':'aac'}
     ydl.__enter__.return_value.prepare_filename.return_value = str(tmp_path/'audio.m4a')
     with patch.dict(sys.modules, {'mlx_whisper':module}), patch.object(acq,'_youtube_dl',return_value=ydl), \
             patch.object(acq.subprocess,'run',return_value=None) as ffmpeg:
@@ -174,7 +176,7 @@ def test_frames_build_names_and_cleanup(frame_run, keep):
     assert json.loads((frame_run/'frames.json').read_text()) == records
     assert all((frame_run/r['path']).exists() for r in records)
     options = download.call_args.args[0]
-    assert options['format'] == 'worst*[height>=360][vcodec!=none]'
+    assert options['format'] == 'worst*[height>=360][vcodec!=none]/worst*[vcodec!=none]'
     assert options['format_sort'] == ['height', 'tbr'] and options['format_sort_force']
     assert 'cookiesfrombrowser' not in options
     command = ffmpeg.call_args.args[0]
@@ -288,7 +290,7 @@ def test_compare_schema_and_render(tmp_path, comparison):
         assert text in document and text in markdown
     assert 'href="run%20one/report.html">v1</a>' in document
     assert '[v1](run%20one/report.html)' in markdown
-    assert '&amp;t=12' in document and 'https://x.com/u/status/1?t=20' in document
+    assert '&amp;t=12' in document and 'https://x.com/u/status/1?t=20' not in document
     assert 'not checked: 1' in document and 'id="claim-search"' in document
     assert run_cli(['report','--compare',str(path)])[0] == 0
 
@@ -391,7 +393,7 @@ def test_doctor_all_checks_offline(tmp_path):
             patch.object(doctor.subprocess,'run',return_value=SimpleNamespace(stdout='ffmpeg version test\n')) as ffmpeg:
         result = doctor.diagnose(tmp_path/'new-output')
     assert result['ok'] and result['missing'] == []
-    assert len(result['checks']) == 5 and all(set(c)=={'name','ok','detail','fix'} for c in result['checks'])
+    assert len(result['checks']) == 6 and all(set(c)=={'name','ok','detail','fix'} for c in result['checks'])
     assert ffmpeg.call_args.args[0] == ['ffmpeg','-version']
     assert not (tmp_path/'new-output').exists()
 
@@ -404,7 +406,7 @@ def test_doctor_missing_and_empty_cache(tmp_path):
             patch.object(doctor.subprocess,'run',side_effect=FileNotFoundError()), \
             patch.object(doctor.tempfile,'TemporaryFile',side_effect=PermissionError('read-only')):
         result = doctor.diagnose(tmp_path)
-    assert not result['ok'] and len(result['missing']) == 5
+    assert not result['ok'] and len(result['missing']) == 6
     assert all(c['fix'] for c in result['checks'])
 
 
@@ -449,7 +451,7 @@ def test_failed_frames_rerun_preserves_previous_outputs(frame_run):
 def test_asr_no_speech_frames_still_extracted(tmp_path):
     module = SimpleNamespace(transcribe=Mock(return_value={'language':'en','segments':[]}))
     ydl = MagicMock()
-    ydl.__enter__.return_value.extract_info.return_value = {'id':'v'}
+    ydl.__enter__.return_value.extract_info.return_value = {'id':'v','acodec':'aac'}
     ydl.__enter__.return_value.prepare_filename.return_value = str(tmp_path/'audio.m4a')
     with patch.dict(sys.modules,{'mlx_whisper':module}), \
             patch.object(acq,'fetch_metadata',return_value={'id':'v','title':'Silent reel'}), \
@@ -458,13 +460,15 @@ def test_asr_no_speech_frames_still_extracted(tmp_path):
             patch.object(frames,'extract_frames') as extract:
         run = acq.fetch_video('https://instagram.com/reel/1',tmp_path,asr='force',frames=True)
     assert json.loads((run/'transcript.json').read_text())['segments'] == []
-    extract.assert_called_once_with(run,cookies=None)
+    extract.assert_called_once()
+    assert extract.call_args.args[0].name.startswith(".run-")
+    assert extract.call_args.kwargs == {"cookies": None}
 
 
 def test_asr_empty_without_frames_remains_a_failure(tmp_path):
     module = SimpleNamespace(transcribe=Mock(return_value={'language':'en','segments':[]}))
     ydl = MagicMock()
-    ydl.__enter__.return_value.extract_info.return_value = {'id':'v'}
+    ydl.__enter__.return_value.extract_info.return_value = {'id':'v','acodec':'aac'}
     ydl.__enter__.return_value.prepare_filename.return_value = str(tmp_path/'audio.m4a')
     with patch.dict(sys.modules,{'mlx_whisper':module}), patch.object(acq,'_youtube_dl',return_value=ydl), \
             patch.object(acq.subprocess,'run',return_value=None), pytest.raises(VideoIntelError,match='no speech'):

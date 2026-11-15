@@ -34,7 +34,7 @@ class TestCLI(unittest.TestCase):
         self.assertIn("Summary: 2 succeeded, 1 failed", out)
 
     def test_fetch_options_and_out_precedence(self):
-        with patch.object(cli, "fetch_video", return_value=Path("run")) as fetch, patch.dict(os.environ, {"VIDEO_INTEL_OUT": "env-output"}):
+        with patch.object(cli, "ydl_options", return_value={}), patch.object(cli, "fetch_video", return_value=Path("run")) as fetch, patch.dict(os.environ, {"VIDEO_INTEL_OUT": "env-output"}):
             result, out, _ = self.run_cli(["fetch", "https://x.com/1", "--lang", "tr, en", "--asr", "force", "--asr-lang", "tr",
                                          "--cookies-from-browser", "chrome:Profile 1", "--keep-audio", "--out", "chosen"])
         self.assertEqual(result, 0)

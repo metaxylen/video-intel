@@ -155,7 +155,10 @@ Transcript body here, one paragraph per line without blank lines between them...
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -v
+python -m pip install -e ".[dev]"
+python -m pytest -q
+# Standard-library unittest subset (no pytest imports):
+python3 -m unittest discover -s tests -q
 ```
 
 ## License
@@ -178,7 +181,7 @@ python -m video_intel fetch --lang tr,en URL
 
 Acquisition tries the existing YouTube caption API first, then yt-dlp manual
 subtitles or automatic captions (VTT/srv3), then local speech recognition (ASR).
-`--lang` lists preferred caption languages; `--asr auto|force|never` controls
+`--lang` lists preferred caption languages (default: the video's original language); `--asr auto|force|never` controls
 fallback, and `--asr-lang auto|tr|en` controls speech recognition. Manual captions
 are preferred within each caption provider.
 
@@ -195,12 +198,13 @@ on both success and failure, unless `--keep-audio` retains it in the run's `audi
 folder. Without the extra, caption acquisition and report rendering still work;
 an ASR attempt reports an actionable `NO_TRANSCRIPT` error.
 
-Each fetch reserves a new `YYYY-MM-DD-<platform>-<slug>/` directory, appending a
+Each successful fetch publishes a new `YYYY-MM-DD-<platform>-<slug>/` directory, appending a
 numeric suffix on collisions. It contains `meta.json`, timestamped
 `transcript.json` segments (`start`, `end`, `text`), and merged `transcript.md`.
 The output root is `--out`, then `VIDEO_INTEL_OUT`, then `~/video-reports`.
-Interrupted or failed ASR runs can leave a reserved directory; retrying creates
-a new directory without overwriting it.
+Artifacts are built in a temporary directory under the output root and renamed
+into place only after the entire fetch (including requested frames) succeeds.
+Failures remove the staging directory. Existing runs are never overwritten.
 
 Cookies are disabled by default. Explicitly opt in only when appropriate:
 
@@ -210,10 +214,38 @@ video-intel fetch --cookies-from-browser 'chrome:Profile 1' URL
 
 This forwards yt-dlp's `BROWSER[+KEYRING][:PROFILE][::CONTAINER]` syntax.
 Using a logged-in account may expose it to platform restrictions. Failures use
-`LOGIN_REQUIRED`, `RATE_LIMITED`, `UNAVAILABLE`, or `NO_TRANSCRIPT` codes.
+`LOGIN_REQUIRED`, `RATE_LIMITED`, `BLOCKED`, `UNAVAILABLE`, `NO_AUDIO`, or `NO_TRANSCRIPT` codes.
 Transient network failures retry with backoff. Each URL prints `OK URL -> RUN_DIR`
 or `FAIL URL ERROR_CODE MESSAGE`, followed by a `Summary:` line. One failed URL
 makes the batch exit with status 1; later URLs still run.
+
+### Acquisition errors
+
+| Code | Meaning / next step |
+|------|---------------------|
+| `LOGIN_REQUIRED` | Login/age/account gate; opt into browser cookies only with user permission. |
+| `RATE_LIMITED` | Too many requests; retry after backoff. |
+| `BLOCKED` | IP/access block; try permitted browser cookies or another network. |
+| `UNAVAILABLE` | Removed/private video or geographic restriction. Private-video sign-in prompts become `LOGIN_REQUIRED` only with cookies configured. |
+| `NO_TRANSCRIPT` | No usable captions/speech, or missing ASR prerequisites. |
+| `NO_AUDIO` | Platform served video without audio; retry with `--cookies-from-browser` if the user allows, or use `--frames` for on-screen text. |
+
+Audio downloads use `bestaudio/best` and inspect the selected audio codec or run
+ffprobe after download. With `--frames`, `NO_AUDIO` prints a warning to stderr,
+continues frame extraction, and writes `transcript.json` with `source: "none"`
+and empty `segments`; successful acquisition still prints `OK`.
+
+Install requires `yt-dlp[default,curl-cffi]>=2026.10.26` for browser impersonation
+([yt-dlp Instagram extractor](https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/instagram.py)).
+Live-verified on 2026-11-15: recent reels such as `/reel/DX7lzTOJ1p6/` return a
+separate DASH audio track anonymously, while some old posts expose only
+video-only formats and produce `NO_AUDIO`. Availability depends on the post and
+platform response; cookies are never enabled automatically.
+
+Fetch/frames/report stdout contains only `OK`/`FAIL`/`Summary:` result lines;
+extractor and model diagnostics go to stderr. `doctor --json` explicitly emits
+its diagnostic JSON instead. Invalid cookie specifications are CLI usage errors
+(exit 2), not platform login failures.
 
 ### Analysis and reports
 
@@ -254,11 +286,12 @@ to 25 words, with dates, verdicts, ratings, and confidence validated.
 `report.html` uses inline CSS, system fonts, automatic light/dark colours, and a
 responsive layout for 390px screens. It makes no external resource requests.
 Transcript and claim text are escaped, source links use HTTP(S), and timestamps
-link to the source (`&t=` on YouTube). `report.md` carries the same analysis,
+link to the source on YouTube (`&t=`); other platforms display plain times. `report.md` carries the same analysis,
 evidence, and transcript. Report generation replaces generated report files but
 does not modify the input analysis, metadata, or transcript.
 
-Run all tests without network access (yt-dlp and ASR integrations are mocked):
+Run all tests without network access (yt-dlp and ASR integrations are mocked; pytest-only expansion cases live in
+`tests/pytest_cases/` so unittest discovery never imports pytest):
 
 ```bash
 python3 -m pytest -q
@@ -290,7 +323,10 @@ video-intel doctor --json
 ```
 
 Frames require ffmpeg and yt-dlp. The downloader selects the lowest-quality video
-stream with height at least 360p; a source offering no such format fails clearly.
+stream with height at least 360p, falling back to the lowest available video
+stream when that preference cannot be met. Frame files and their manifest are
+staged and published by rename only after successful extraction; failed reruns
+preserve previous outputs.
 The extractor selects the first frame, scene changes (`scene > 0.3`), and an
 interval fallback (default: 30 seconds since the previous selected frame), capped
 at 24 frames overall. JPEGs are 512 pixels wide, named by original source time
@@ -325,7 +361,7 @@ timestamps link to the original source. The command writes `compare.html` and
 `compare.md` beside the input JSON and validates it before writing either file.
 
 `doctor` never installs dependencies or downloads models. It checks the yt-dlp
-version/import, ffmpeg, the mlx-whisper import, cached config/weights under
+version/import, curl_cffi impersonation availability with an install fix command, ffmpeg, the mlx-whisper import, cached config/weights under
 `~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo`, and write
 access to `VIDEO_INTEL_OUT` (default: `~/video-reports`). JSON output has
 `ok`, `checks` (`name`, `ok`, `detail`, `fix`), and `missing`. It exits 0 only when

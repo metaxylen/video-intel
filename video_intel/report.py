@@ -9,7 +9,7 @@ import math
 import re
 from collections import Counter
 from pathlib import Path
-from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
+from urllib.parse import quote
 
 from youtube_transcript.markdown import format_timestamp
 from youtube_transcript.urls import extract_video_id
@@ -160,10 +160,15 @@ def esc(value) -> str:
 
 def md(value) -> str:
     # Markdown may itself be rendered as HTML by downstream viewers.
-    text = html.escape(str(value), quote=False)
+    text = html.escape(str(value).replace("\r\n", "\n").replace("\r", "\n"), quote=False)
     text = re.sub(r"([\\`*_{}\[\]|])", r"\\\1", text)
-    text = re.sub(r"(?m)^(\s*)([#+~-]|\d+[.)])", r"\1\\\2", text)
-    return text.replace("\n", "  \n")
+    text = re.sub(r"(?m)^(\s*)([#+~>=-]|\d+[.)])", r"\1\\\2", text)
+    return text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "  \n")
+
+
+def single_line(value) -> str:
+    """Keep untrusted headings within a single physical line."""
+    return " ".join(str(value).split())
 
 
 def timestamp_url(url: str, seconds: float) -> str:
@@ -172,10 +177,9 @@ def timestamp_url(url: str, seconds: float) -> str:
     video_id = extract_video_id(url)
     if video_id:
         url = f"https://www.youtube.com/watch?v={video_id}"
-    parts = urlsplit(url)
-    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "t"]
-    query.append(("t", str(int(seconds))))
-    return urlunsplit(parts._replace(query=urlencode(query), fragment=""))
+    else:
+        return ""
+    return f"{url}&t={int(seconds)}"
 
 
 def link(label, url, markdown=False) -> str:
@@ -237,7 +241,7 @@ def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, s
     validate_analysis(analysis)
     segments = _transcript_segments(transcript)
     video = analysis["video"]
-    title, url = video["title"], video["webpage_url"]
+    title, url = single_line(video["title"]), video["webpage_url"]
     source = analysis["transcript_source"]
     model = analysis["asr_model"]
     channel = video.get("channel") or video.get("uploader") or "Unknown channel"
@@ -266,6 +270,8 @@ def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, s
                     or not isinstance(frame.get("path"), str)
                     or not re.fullmatch(r"frames/\d{4,}\.\d{2}\.jpg", frame["path"])):
                 raise ValueError("frames.json: expected nonnegative t and a relative timestamp JPEG path")
+            if video.get("duration") is not None and frame["t"] > video["duration"]:
+                raise ValueError("frames.json: timestamp exceeds video.duration")
             label = format_timestamp(frame["t"])
             h.append(f'<figure><img src="{esc(frame["path"])}" alt="Frame at {esc(label)}" '
                      f'loading="lazy" width="512"><figcaption>{time_link(frame["t"], url)}</figcaption></figure>')
@@ -292,7 +298,7 @@ def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, s
             for moment in lens:
                 h.append(f'<div class="moment">{time_link(moment["t"], url)} '
                          f'<strong>{esc(moment["title"])}</strong><p>{esc(moment["note"])}</p></div>')
-                m.extend([f"### {time_link(moment['t'], url, True)} {md(moment['title'])}", "", md(moment["note"]), ""])
+                m.extend([f"### {time_link(moment['t'], url, True)} {md(single_line(moment['title']))}", "", md(moment["note"]), ""])
             h.append("</section>")
         elif name == "claims":
             h.append("<section><h2>Claims</h2>")
@@ -305,10 +311,10 @@ def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, s
                 label = verdict.replace("-", " ")
                 details = f"{claim['kind']} · Confidence: {claim['confidence']} · Rating: {claim['rating'] if claim['rating'] is not None else '—'}/5"
                 h.append(f'<article data-claim data-verdict="{esc(verdict)}"><span class="chip {colour}">{esc(label)}</span>'
-                         f'<h3>{esc(claim["claim_reviewed"])}</h3>'
+                         f'<h3>{esc(single_line(claim["claim_reviewed"]))}</h3>'
                          f'<p class="muted">{esc(claim["id"])} · {time_link(claim["t"], url)} · {esc(details)}</p>'
                          f'<blockquote>{esc(claim["quote"])}</blockquote><p>{esc(claim["rationale"])}</p>')
-                m.extend([f"### {md(claim['claim_reviewed'])}", "", f"**Verdict: {md(label)}**",
+                m.extend([f"### {md(single_line(claim['claim_reviewed']))}", "", f"**Verdict: {md(label)}**",
                           f"{md(claim['id'])} · {time_link(claim['t'], url, True)} · {md(details)}", "",
                           md(claim["quote"]), "", md(claim["rationale"]), ""])
                 for evidence in claim["evidence"]:
@@ -326,8 +332,8 @@ def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, s
             h.append(f'<section><h2>{TITLES[name]}</h2>{lens_html}</section>')
             m.extend(["", f"## {TITLES[name]}", "", lens_md])
         else:
-            h.append(f"<section><h2>{esc(name)}</h2>{generic(lens)}</section>")
-            m.extend(["", f"## {md(name)}", "", generic(lens, True)])
+            h.append(f"<section><h2>{esc(single_line(name))}</h2>{generic(lens)}</section>")
+            m.extend(["", f"## {md(single_line(name))}", "", generic(lens, True)])
     caveats = list(analysis["caveats"])
     if source == "asr":
         caveats.append("Machine transcription may distort names and numbers; check the source audio.")
@@ -356,7 +362,7 @@ def write_report(run_dir: Path) -> tuple[Path, Path]:
         if "video" not in analysis:
             analysis["video"] = metadata
         elif isinstance(analysis["video"], dict):
-            analysis["video"] = dict(metadata, **analysis["video"])
+            analysis["video"] = dict(analysis["video"], **metadata)
     transcript_path = run_dir / "transcript.json"
     transcript = read_json(transcript_path) if transcript_path.is_file() else None
     frames_path = run_dir / "frames.json"

@@ -6,9 +6,10 @@ import argparse
 import json
 import os
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
-from video_intel.acquisition import fetch_video
+from video_intel.acquisition import fetch_video, ydl_options
 from video_intel.errors import map_error
 from video_intel.report import write_report
 from video_intel.window import focus_window, parse_time
@@ -45,24 +46,33 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if getattr(args, "cookies_from_browser", None):
+        try:
+            ydl_options(args.cookies_from_browser)
+        except (ValueError, SystemExit) as exc:
+            parser.error(f"--cookies-from-browser: {exc}")
     if args.command == "doctor":
         from video_intel.doctor import diagnose
 
-        result = diagnose()
+        with redirect_stdout(sys.stderr):
+            result = diagnose()
         if args.json:
             print(json.dumps(result, ensure_ascii=False))
         else:
             for check in result["checks"]:
-                print(f"{'OK' if check['ok'] else 'MISSING'} {check['name']}: {check['detail']}")
+                detail = " ".join(check["detail"].split())
+                print(f"{'OK' if check['ok'] else 'FAIL'} {check['name']}: {detail}")
                 if check["fix"]:
-                    print(f"  Fix: {check['fix']}")
+                    print(f"Fix {check['name']}: {check['fix']}", file=sys.stderr)
         return 0 if result["ok"] else 1
     if args.command == "frames":
         from video_intel.frames import extract_frames
 
         try:
-            records = extract_frames(args.run_dir.expanduser(), args.max_frames, args.every, args.keep_video)
+            with redirect_stdout(sys.stderr):
+                records = extract_frames(args.run_dir.expanduser(), args.max_frames, args.every, args.keep_video)
         except (ValueError, OSError, KeyError) as exc:
             print(f"FAIL frames: {exc}", file=sys.stderr)
             return 1
@@ -85,9 +95,9 @@ def main(argv=None) -> int:
         except (ValueError, OSError) as exc:
             print(f"FAIL report: {exc}", file=sys.stderr)
             return 1
-        print(f"OK report -> {paths[0]}\nMarkdown -> {paths[1]}")
+        print(f"OK report -> {paths[0]}\nOK Markdown -> {paths[1]}")
         return 0
-    root = (args.out or Path(os.environ.get("VIDEO_INTEL_OUT", "~/video-reports"))).expanduser()
+    root = (args.out or Path((os.environ.get("VIDEO_INTEL_OUT") or "~/video-reports"))).expanduser()
     languages = [part.strip() for part in args.lang.split(",") if part.strip()]
     try:
         focus_window(args.start, args.end)
@@ -103,11 +113,12 @@ def main(argv=None) -> int:
     failed = 0
     for url in args.urls:
         try:
-            run_dir = fetch_video(url, root, languages=languages, asr=args.asr, asr_lang=args.asr_lang,
-                                  cookies=args.cookies_from_browser, keep_audio=args.keep_audio, **extra)
+            with redirect_stdout(sys.stderr):
+                run_dir = fetch_video(url, root, languages=languages, asr=args.asr, asr_lang=args.asr_lang,
+                                      cookies=args.cookies_from_browser, keep_audio=args.keep_audio, **extra)
             print(f"OK {url} -> {run_dir}")
         except Exception as exc:
-            error = map_error(exc)
+            error = map_error(exc, cookies=args.cookies_from_browser)
             failed += 1
             # One machine-readable result line per URL, even for multiline extractor errors.
             print(f"FAIL {url} {error.code} {' '.join(str(error).split())}")

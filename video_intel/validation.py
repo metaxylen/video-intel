@@ -33,8 +33,45 @@ def read_json(path):
     return json.loads(path.read_text(encoding="utf-8"), parse_constant=reject_constant)
 
 
+# Reject unsupported schema additions rather than silently accepting invalid data.
+SCHEMA_KEYWORDS = frozenset({
+    "$schema", "title", "description", "type", "required", "properties", "items",
+    "const", "enum", "minimum", "maximum", "minLength", "maxLength", "x-maxWords",
+    "pattern", "format", "minItems", "additionalProperties",
+})
+
+
+def validate_schema_definition(schema):
+    unknown = set(schema) - SCHEMA_KEYWORDS
+    if unknown:
+        raise ValueError(f"Unsupported JSON Schema keywords: {sorted(unknown)}")
+    if schema.get("format") not in (None, "uri", "date"):
+        raise ValueError(f"Unsupported JSON Schema format: {schema['format']}")
+    if "additionalProperties" in schema and schema["additionalProperties"] is not True:
+        raise ValueError("Unsupported JSON Schema additionalProperties constraint")
+    for child in schema.get("properties", {}).values():
+        validate_schema_definition(child)
+    if "items" in schema:
+        validate_schema_definition(schema["items"])
+
+
+def validate_timestamps(value, duration, path="analysis.lenses"):
+    errors = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}"
+            if key in ("t", "t_start", "t_end") and type(child) in (int, float) and child > duration:
+                errors.append(f"{child_path}: timestamp exceeds video.duration {duration}")
+            errors.extend(validate_timestamps(child, duration, child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            errors.extend(validate_timestamps(child, duration, f"{path}[{index}]"))
+    return errors
+
+
 def validate_schema(data, name):
     schema = json.loads(files("video_intel").joinpath(f"schema/{name}.schema.json").read_text(encoding="utf-8"))
+    validate_schema_definition(schema)
     errors = []
 
     def matches(value, kind):
@@ -102,6 +139,12 @@ def validate_analysis(analysis: dict) -> None:
     actions = analysis["lenses"].get("actions", [])
     ids = [item["id"] for item in actions]
     errors = []
+    claims = [item["id"] for item in analysis["lenses"].get("claims", [])]
+    if len(claims) != len(set(claims)):
+        errors.append("analysis.lenses.claims: duplicate ids")
+    duration = analysis["video"].get("duration")
+    if duration is not None:
+        errors.extend(validate_timestamps(analysis["lenses"], duration))
     if len(ids) != len(set(ids)):
         errors.append("analysis.lenses.actions: duplicate ids")
     dependencies = {item["id"]: item["depends_on"] for item in actions}

@@ -110,6 +110,7 @@ def fetch_transcript_with_retry(
             )
         except TranscriptError:
             raise
+        # These inherit CouldNotRetrieveTranscript; retry them before the terminal base handler.
         except (YouTubeRequestFailed, RequestBlocked) as e:
             last_error = e
             if attempt < max_retries - 1:

@@ -219,7 +219,7 @@ class TestRenderer(unittest.TestCase):
         for original in ("https://youtu.be/dQw4w9WgXcQ?t=100", "https://youtube.com/shorts/dQw4w9WgXcQ"):
             self.assertEqual(timestamp_url(original, 65.5), "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=65")
         self.assertEqual(timestamp_url("https://x.com/u/status/1?lang=en&t=2#x", 3),
-                         "https://x.com/u/status/1?lang=en&t=3")
+                         "")
 
     def test_safe_links_and_generic_html(self):
         for url in ("javascript:alert(1)", "data:text/html,hello", "file:///etc/passwd", "https://[broken"):

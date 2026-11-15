@@ -11,7 +11,7 @@ requires-python = ">=3.9"
 license = { text = "MIT" }
 dependencies = [
     "youtube-transcript-api>=0.6.2",
-    "yt-dlp>=2024.1.0",
+    "yt-dlp[default,curl-cffi]>=2026.10.26",
 ]
 
 [project.scripts]
@@ -19,6 +19,7 @@ yt-captions-md = "youtube_transcript.cli:main"
 video-intel = "video_intel.cli:main"
 
 [project.optional-dependencies]
+dev = ["pytest>=8"]
 asr = ["mlx-whisper; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [tool.setuptools.packages.find]

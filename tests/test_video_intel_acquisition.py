@@ -267,7 +267,11 @@ class TestIntegrations(unittest.TestCase):
         self.assertEqual(caught.exception.code, "UNAVAILABLE")
 
     def test_missing_asr_has_actionable_error(self):
-        with tempfile.TemporaryDirectory() as root, patch.dict(sys.modules, {"mlx_whisper": None}):
+        ydl = MagicMock()
+        ydl.__enter__.return_value.extract_info.return_value = {"id": "v", "acodec": "aac"}
+        ydl.__enter__.return_value.prepare_filename.return_value = "source.m4a"
+        with tempfile.TemporaryDirectory() as root, patch.dict(sys.modules, {"mlx_whisper": None}), \
+                patch.object(acq, "_youtube_dl", return_value=ydl):
             with self.assertRaises(VideoIntelError) as caught:
                 acq.asr_transcript(URL, Path(root))
             self.assertEqual(caught.exception.code, "NO_TRANSCRIPT")
@@ -279,7 +283,7 @@ class TestIntegrations(unittest.TestCase):
             module = SimpleNamespace(transcribe=Mock(return_value={"language": "tr", "segments": CAPTIONS["segments"]}, side_effect=failure))
             ydl = MagicMock()
             client = ydl.__enter__.return_value
-            client.extract_info.return_value = {"id": "v", "ext": "m4a"}
+            client.extract_info.return_value = {"id": "v", "ext": "m4a", "acodec": "aac"}
 
             def prepare(info):
                 return str(Path(root) / "source.m4a")
@@ -302,7 +306,7 @@ class TestIntegrations(unittest.TestCase):
                     self.assertEqual(result["language"], "tr")
                 self.assertEqual(module.transcribe.call_args.kwargs["path_or_hf_repo"], acq.ASR_MODEL)
                 self.assertEqual(module.transcribe.call_args.kwargs["language"], None if language == "auto" else language)
-                self.assertEqual(factory.call_args.args[0]["format"], "bestaudio")
+                self.assertEqual(factory.call_args.args[0]["format"], "bestaudio/best")
                 client.extract_info.assert_called_once_with(URL, download=True)
                 command = ffmpeg.call_args.args[0]
                 self.assertEqual(command[command.index("-ar") + 1], "16000")
@@ -322,7 +326,7 @@ class TestIntegrations(unittest.TestCase):
     def test_missing_ffmpeg_cleans_up(self):
         module = SimpleNamespace(transcribe=Mock())
         ydl = MagicMock()
-        ydl.__enter__.return_value.extract_info.return_value = {"id": "v"}
+        ydl.__enter__.return_value.extract_info.return_value = {"id": "v", "acodec": "aac"}
         ydl.__enter__.return_value.prepare_filename.return_value = "source.m4a"
         with tempfile.TemporaryDirectory() as root, patch.dict(sys.modules, {"mlx_whisper": module}), \
                 patch.object(acq, "_youtube_dl", return_value=ydl), \

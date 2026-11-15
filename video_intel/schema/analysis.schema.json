@@ -92,7 +92,8 @@
       "enum": [
         "captions-manual",
         "captions-auto",
-        "asr"
+        "asr",
+        "none"
       ]
     },
     "asr_model": {

@@ -25,6 +25,12 @@ def diagnose(output_dir=None):
     except Exception as exc:
         add("yt-dlp", False, exc, "Install yt-dlp in this Python environment.")
     try:
+        importlib.import_module("curl_cffi.requests")
+        add("impersonation", True, "curl_cffi available for yt-dlp browser impersonation", "")
+    except Exception as exc:
+        add("impersonation", False, exc,
+            'python -m pip install -U "yt-dlp[default,curl-cffi]>=2026.10.26"')
+    try:
         result = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=10, check=True)
         add("ffmpeg", True, result.stdout.splitlines()[0], "")
     except (OSError, subprocess.SubprocessError, IndexError) as exc:
@@ -45,7 +51,7 @@ def diagnose(output_dir=None):
     except OSError as exc:
         cached, detail = False, exc
     add("asr-model", cached, detail, f"Cache {ASR_MODEL} before offline ASR use.")
-    output = Path(output_dir or os.environ.get("VIDEO_INTEL_OUT", "~/video-reports")).expanduser()
+    output = Path(output_dir or (os.environ.get("VIDEO_INTEL_OUT") or "~/video-reports")).expanduser()
     try:
         ancestor = output
         while not ancestor.exists() and ancestor != ancestor.parent:

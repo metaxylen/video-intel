@@ -36,7 +36,7 @@ def extract_frames(run_dir: Path, max_frames=24, every=None, keep_video=False, c
         def download():
             options = ydl_options(cookies)
             # Include combined and video-only formats; prioritize height over quality.
-            options.update(format="worst*[height>=360][vcodec!=none]",
+            options.update(format="worst*[height>=360][vcodec!=none]/worst*[vcodec!=none]",
                            format_sort=["height", "tbr"], format_sort_force=True,
                            outtmpl=str(work / "source.%(ext)s"))
             with _youtube_dl(options) as ydl:
@@ -45,7 +45,7 @@ def extract_frames(run_dir: Path, max_frames=24, every=None, keep_video=False, c
                     raise VideoIntelError("UNAVAILABLE", "Video download returned no video")
                 return Path(ydl.prepare_filename(info))
 
-        video = with_retry(download)
+        video = with_retry(download, cookies=cookies)
         command = ["ffmpeg", "-nostdin", "-y", "-hide_banner", "-loglevel", "info",
                    "-threads", "1", "-filter_threads", "1"]
         offset = window["start"] if window else 0
@@ -68,8 +68,11 @@ def extract_frames(run_dir: Path, max_frames=24, every=None, keep_video=False, c
         if not images or len(times) < len(images):
             raise VideoIntelError("UNAVAILABLE", "ffmpeg returned no timestamped frames in the focus window")
         records = []
-        destination = run_dir / "frames"
-        destination.mkdir(exist_ok=True)
+        destination = work / "frames"
+        if (run_dir / "frames").exists():
+            shutil.copytree(run_dir / "frames", destination)
+        else:
+            destination.mkdir()
         seen = set()
         for image, t in zip(images, times):
             if not math.isfinite(t) or t < 0 or (window and
@@ -86,13 +89,38 @@ def extract_frames(run_dir: Path, max_frames=24, every=None, keep_video=False, c
             records.append({"t": t, "path": f"frames/{name}"})
         if not records:
             raise VideoIntelError("UNAVAILABLE", "No frames inside the focus window")
-        (run_dir / "frames.json").write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
+        manifest = work / "frames.json"
+        manifest.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
         # Only remove files owned by the previous manifest, after a successful run.
         current = {record["path"] for record in records}
         for record in previous if isinstance(previous, list) else []:
             path = record.get("path") if isinstance(record, dict) else None
             if isinstance(path, str) and re.fullmatch(r"frames/\d{4,}\.\d{2}\.jpg", path) and path not in current:
-                (run_dir / path).unlink(missing_ok=True)
+                (destination / Path(path).name).unlink(missing_ok=True)
+        # Publish only after download, extraction and manifest construction succeed.
+        old_frames, old_manifest = work / "previous-frames", work / "previous.json"
+        published_frames, published_manifest = run_dir / "frames", run_dir / "frames.json"
+        if published_frames.exists():
+            published_frames.rename(old_frames)
+        try:
+            if published_manifest.exists():
+                published_manifest.rename(old_manifest)
+            try:
+                destination.rename(published_frames)
+                manifest.replace(published_manifest)
+            except BaseException:
+                if published_frames.exists():
+                    shutil.rmtree(published_frames)
+                if old_manifest.exists():
+                    old_manifest.replace(published_manifest)
+                raise
+        except BaseException:
+            if old_frames.exists():
+                old_frames.rename(published_frames)
+            raise
+        if old_frames.exists():
+            shutil.rmtree(old_frames)
+        old_manifest.unlink(missing_ok=True)
         if keep_video:
             # Keep only the downloaded video, never the intermediate JPEGs.
             for image in work.glob("frame-*.jpg"):

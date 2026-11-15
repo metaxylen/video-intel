@@ -2,7 +2,7 @@
 
 import re
 
-from video_intel.report import esc, link, md, time_link
+from video_intel.report import esc, link, md, single_line, time_link
 
 TITLES = {"steps": "Steps", "mentions": "Mentions", "hook": "Hook and retention",
           "sources": "Cited sources", "tone": "Tone and persuasion", "actions": "Actions"}
@@ -18,6 +18,7 @@ def render_lens(name, lens, url):
         m.extend([stamp_md + md(text), ""])
 
     def heading(text):
+        text = single_line(text)
         h.append(f"<h3>{esc(text)}</h3>")
         m.extend([f"### {md(text)}", ""])
 
