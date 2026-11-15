@@ -11,6 +11,10 @@
     "caveats"
   ],
   "properties": {
+    "report_language": {
+      "type": "string",
+      "enum": ["tr", "en"]
+    },
     "schema_version": {
       "type": "integer",
       "const": 1

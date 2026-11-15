@@ -143,7 +143,7 @@ class TestRenderer(unittest.TestCase):
     def test_known_lenses_and_evidence(self):
         document, markdown = render_reports(analysis_fixture())
         for text in ("Summary", "Key moments", "Claims", "Caveats", "Primary source",
-                     "mostly true", "Confidence: high", "Rating: 4/5", "01:05", "02:05", "2026-11-15"):
+                     "Mostly true", "Confidence: High", "Rating: 4/5", "01:05", "02:05", "2026-11-15"):
             with self.subTest(text=text):
                 self.assertIn(text, document)
                 self.assertIn(text, markdown)
@@ -211,7 +211,7 @@ class TestRenderer(unittest.TestCase):
         data["lenses"]["claims"][0]["rating"] = None
         document, _ = render_reports(data)
         self.assertNotIn("Audience:", document)
-        self.assertIn("Rating: —/5", document)
+        self.assertIn('aria-label="Not rated"', document)
         data["lenses"] = {}
         render_reports(data)
 

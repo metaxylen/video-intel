@@ -16,142 +16,92 @@ from youtube_transcript.urls import extract_video_id
 
 from video_intel.validation import read_json, safe_url, validate_analysis
 
-CSS = """
-:root { color-scheme: light dark; --bg:#f6f7f9; --surface:#fff; --text:#1c2430;
-  --muted:#536174; --line:#d9dfe7; --link:#1554ad; --good:#17653a; --good-bg:#e4f4ea;
-  --bad:#a52929; --bad-bg:#fce8e8; --warn:#805300; --warn-bg:#fff1cf; --neutral-bg:#e9edf2; }
-@media(prefers-color-scheme:dark) { :root { --bg:#14171c; --surface:#1d222a;
-  --text:#e7ebf1; --muted:#b0bdcf; --line:#394351; --link:#91bdff; --good:#91d8ac;
-  --good-bg:#203c2b; --bad:#ffabab; --bad-bg:#452526; --warn:#f2d28a; --warn-bg:#41351e;
-  --neutral-bg:#303945; } }
-* { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--text);
-  font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-main { max-width:960px; margin:auto; padding:40px 28px 72px; overflow-wrap:anywhere; }
-header { padding-bottom:28px; border-bottom:1px solid var(--line); }
-h1 { font-size:clamp(1.75rem,5vw,2.5rem); line-height:1.2; margin:8px 0 20px; }
-h2 { margin:36px 0 16px; font-size:1.35rem; line-height:1.3; }
-h3 { margin:12px 0; font-size:1.1rem; line-height:1.4; }
-p { margin:10px 0; } a { color:var(--link); text-underline-offset:3px; }
-a:focus-visible,summary:focus-visible { outline:3px solid var(--link); outline-offset:4px; }
-.muted,dt { color:var(--muted); } .meta { display:flex; flex-wrap:wrap; gap:8px 20px; }
-.chip { display:inline-block; border-radius:5px; padding:3px 9px; background:var(--neutral-bg);
-  color:var(--text); font-size:.85rem; font-weight:600; }
-.good { background:var(--good-bg); color:var(--good); }
-.bad { background:var(--bad-bg); color:var(--bad); }
-.warn { background:var(--warn-bg); color:var(--warn); }
-article { background:var(--surface); padding:22px; border:1px solid var(--line); margin:16px 0; border-radius:8px; }
-blockquote { margin:14px 0; padding:4px 16px; border-left:3px solid var(--line); }
-ul,ol { padding-left:24px; } li { margin:8px 0; } dl { margin:12px 0; }
-dt { font-weight:600; } dd { margin:0 0 16px; } dd dl, dd ul { padding-left:16px; }
-.time { font-variant-numeric:tabular-nums; white-space:nowrap; }
-.moment { padding:12px 0; border-bottom:1px solid var(--line); }
-summary { cursor:pointer; padding:12px 0; font-weight:600; }
-.transcript p { padding:8px 0; } .evidence { padding-top:12px; border-top:1px solid var(--line); }
-@media(max-width:480px) { main { padding:24px 16px 48px; } article { padding:16px; } }
-@media print { body { background:white; color:black; } main { max-width:none; } article { break-inside:avoid; } }
-/* Reflow at phone widths, including long URLs and literal tutorial commands. */
-main,section,article,details { min-width:0; }
-a { display:inline-block; min-height:44px; min-width:44px; padding-block:8px; vertical-align:middle; }
-button,input,select { font:inherit; min-height:44px; min-width:44px; max-width:100%;
-  border:1px solid var(--line); border-radius:6px; padding:8px 12px;
-  background:var(--surface); color:var(--text); }
-button { cursor:pointer; } button:focus-visible,input:focus-visible,select:focus-visible {
-  outline:3px solid var(--link); outline-offset:3px; }
-.controls,.verdict-bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:16px 0; }
-.controls label { display:grid; gap:4px; flex:1 1 200px; min-width:0; }
-.toc ul { display:flex; flex-wrap:wrap; gap:4px 20px; list-style:none; padding:0; }
-.toc li { margin:0; } .frame-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:12px; }
-figure { margin:0; min-width:0; } img { max-width:100%; width:100%; height:auto; border-radius:6px; }
-pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--neutral-bg); padding:12px; border-radius:6px; }
-code { font-size:.9em; } [hidden] { display:none!important; }
-@media print { .controls,.toc,.verdict-bar,button { display:none!important; }
-  [data-claim][hidden] { display:block!important; } a { min-height:0; padding:0; }
-  .frame-strip { grid-template-columns:repeat(3,1fr); } header { border-color:#999; }
-  :root { color-scheme:light; --surface:#fff; --text:#000; --muted:#333; --link:#000;
-    --neutral-bg:#eee; --good-bg:#eee; --bad-bg:#eee; --warn-bg:#eee;
-    --good:#000; --bad:#000; --warn:#000; }
-}
-"""
-
-SCRIPT = """
-(() => {
-  const search = document.getElementById('claim-search');
-  const verdict = document.getElementById('claim-verdict');
-  const cards = Array.from(document.querySelectorAll('[data-claim]'));
-  function filterClaims() {
-    const query = search.value.toLocaleLowerCase();
-    let visible = 0;
-    cards.forEach(card => {
-      card.hidden = !(card.textContent.toLocaleLowerCase().includes(query) &&
-        (!verdict.value || card.dataset.verdict === verdict.value));
-      if (!card.hidden) visible++;
-    });
-    document.getElementById('claim-count').textContent = visible + ' of ' + cards.length + ' claims';
-  }
-  if (search && verdict) {
-    search.addEventListener('input', filterClaims);
-    verdict.addEventListener('change', filterClaims);
-    filterClaims();
-  }
-  document.getElementById('copy-markdown').addEventListener('click', async () => {
-    const text = document.getElementById('markdown-source');
-    const status = document.getElementById('copy-status');
-    try {
-      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(text.value);
-      else {
-        text.hidden = false;
-        text.select();
-        const copied = document.execCommand('copy');
-        text.hidden = true;
-        if (!copied) throw new Error('copy unavailable');
-      }
-      status.textContent = 'Markdown copied';
-    } catch (_) {
-      text.hidden = true;
-      status.textContent = 'Copy unavailable. Open the adjacent Markdown file.';
-    }
-  });
-})();
-"""
+from video_intel.presentation import CSS, SCRIPT, VERDICTS, label, report_language
 
 
-def make_document(title, body, markdown):
-    """Shared offline shell; the CSP permits only this exact inline script."""
+def make_document(title, body, markdown, language="en", counts=None):
+    """Shared offline shell; untrusted text never enters the trusted inline script."""
     headings = []
 
     def anchor(match):
-        index = len(headings)
-        headings.append((f"section-{index}", match.group(1)))
-        return f'<h2 id="section-{index}">{match.group(1)}</h2>'
+        key = f"section-{len(headings)}"
+        headings.append((key, match.group(1)))
+        return f'<h2 id="{key}">{match.group(1)}</h2>'
 
     body = re.sub(r"<h2>(.*?)</h2>", anchor, body, flags=re.S)
-    toc = ('<nav class="toc" aria-label="Table of contents"><h2>Contents</h2><ul>'
-           + "".join(f'<li><a href="#{key}">{label}</a></li>' for key, label in headings) + "</ul></nav>")
-    controls = ('<div class="controls"><button id="copy-markdown" type="button">Copy as Markdown</button>'
-                '<span id="copy-status" role="status" aria-live="polite"></span></div>')
+    # Observe sections rather than short heading elements so long sections stay active.
+    body = re.sub(r'(<section[^>]*>)<h2 id="(section-\d+)"',
+                  lambda m: m.group(1)[:-1] + f' id="{m.group(2)}"><h2', body)
+    toc = (f'<nav class="toc" aria-label="{esc(label("toc", language))}">'
+           f'<h2>{esc(label("contents", language))}</h2><ul>'
+           + "".join(f'<li><a href="#{key}" aria-current="{str(i == 0).lower()}">{text}</a></li>'
+                     for i, (key, text) in enumerate(headings)) + "</ul></nav>")
+
+    def actions(mobile=False):
+        return (f'<div class="actions{ " mobile-actions" if mobile else ""}">'
+                f'<button type="button" data-copy-markdown>{esc(label("copy", language))}</button>'
+                f'<button type="button" data-print>{esc(label("print", language))}</button></div>')
+
+    status = '<span id="copy-status" role="status" aria-live="polite"></span>'
+    header, rest = body.split('</header>', 1)
+    header = header.replace('<header>', '<header class="report-header">', 1)
+    header += actions(True) + status + '</header>'
+    rail_legend = (f'<div class="rail-legend"><h2>{esc(label("verdict_summary", language))}</h2>'
+                   + verdict_legend(counts, language) + '</div>') if counts else ''
     digest = base64.b64encode(hashlib.sha256(SCRIPT.encode()).digest()).decode()
-    csp = ("default-src 'none'; style-src 'unsafe-inline'; img-src 'self' file:; "
+    csp = ("default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
            f"script-src 'sha256-{digest}'; connect-src 'none'; base-uri 'none'; form-action 'none'")
-    return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    data = ' '.join(f'data-{key}="{esc(label(value, language))}"' for key, value in
+                    (("count", "count"), ("copied", "copied"), ("copy-failed", "copy_failed")))
+    return (f'<!doctype html><html lang="{language}" {data}><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<meta http-equiv="Content-Security-Policy" content="{esc(csp)}">'
-            f'<title>{esc(title)} — Video analysis</title><style>{CSS}</style></head><body><main>'
-            + controls + toc + body + f'<textarea id="markdown-source" aria-label="Report Markdown" hidden>{esc(markdown)}</textarea>'
-            + f'</main><script>{SCRIPT}</script></body></html>\n')
+            f'<title>{esc(title)} — {esc(label("report", language))}</title><style>{CSS}</style></head><body>'
+            '<div class="layout">' + header + '<aside class="rail">' + toc + rail_legend + actions() + '</aside>'
+            + '<main>' + rest + '</main></div>'
+            + f'<textarea id="markdown-source" aria-label="{esc(label("markdown", language))}" hidden>{esc(markdown)}</textarea>'
+            + f'<script>{SCRIPT}</script></body></html>\n')
 
 
-def verdict_bar(counts):
-    return ('<aside aria-label="Verdict summary" class="verdict-bar">' + "".join(
-        f'<span class="chip">{esc(verdict.replace("-", " "))}: {count}</span>'
-        for verdict, count in counts.items()) + "</aside>") if counts else ""
+def verdict_legend(counts, language="en"):
+    return '<div class="verdict-legend">' + "".join(
+        f'<button type="button" data-filter-verdict="{verdict}" aria-pressed="false" '
+        f'style="--verdict:var(--{verdict})"><span class="swatch" aria-hidden="true"></span>'
+        f'<span><strong>{counts[verdict]}</strong> {esc(label(verdict, language))}</span></button>'
+        for verdict in VERDICTS if counts.get(verdict)) + '</div>'
 
 
-def claim_controls(counts):
-    return ('<div class="controls"><label>Search claims<input id="claim-search" type="search" '
-            'placeholder="Search text, evidence or rationale"></label><label>Verdict'
-            '<select id="claim-verdict"><option value="">All verdicts</option>' + "".join(
-                f'<option value="{esc(verdict)}">{esc(verdict.replace("-", " "))}</option>' for verdict in counts)
-            + '</select></label><span id="claim-count" role="status" aria-live="polite"></span></div>')
+def verdict_bar(counts, language="en"):
+    if not counts:
+        return ""
+    total = sum(counts.values())
+    minimum_width = 44 * total / min(counts.values()) + 3 * (len(counts) - 1)
+    return (f'<div class="verdict-summary"><h2 class="verdict-heading">{esc(label("verdict_summary", language))}</h2>'
+            f'<div class="verdict-scroll"><div class="verdict-bar" style="min-width:{minimum_width:g}px" role="group" aria-label="{esc(label("verdict_summary", language))}">'
+            + "".join(f'<button type="button" class="verdict-segment" data-filter-verdict="{verdict}" '
+                      f'data-count="{counts[verdict]}" aria-pressed="false" '
+                      f'aria-label="{esc(label(verdict, language))}: {counts[verdict]}" '
+                      f'style="--count:{counts[verdict]};--verdict:var(--{verdict});width:{counts[verdict] / total * 100:.4f}%">'
+                      f'{counts[verdict]}</button>' for verdict in VERDICTS if counts.get(verdict))
+            + '</div></div>' + verdict_legend(counts, language) + '</div>')
+
+
+def truth_meter(verdict, rating, language="en"):
+    rated = verdict not in ("not-checkable", "not-enough-evidence", "not-checked") and rating is not None
+    accessible = f'{label("rating", language)}: {rating}/5' if rated else label("unrated", language)
+    return (f'<span class="truth-meter" role="img" aria-label="{esc(accessible)}">'
+            + "".join(f'<i class="{ "filled" if rated and i < rating else ""}" aria-hidden="true"></i>'
+                      for i in range(5)) + '</span>')
+
+
+def claim_controls(counts, language="en"):
+    return (f'<div class="controls"><label>{esc(label("search_claims", language))}<input id="claim-search" type="search" '
+            f'placeholder="{esc(label("search_hint", language))}"></label><label>{esc(label("verdict", language))}'
+            f'<select id="claim-verdict"><option value="">{esc(label("all_verdicts", language))}</option>'
+            + "".join(f'<option value="{verdict}">{esc(label(verdict, language))}</option>'
+                      for verdict in VERDICTS if counts.get(verdict))
+            + '</select></label><span id="claim-count" role="status" aria-live="polite"></span></div>'
+            + f'<p id="claim-empty" role="status" hidden>{esc(label("empty", language))}</p>')
 
 
 def esc(value) -> str:
@@ -196,31 +146,45 @@ def time_link(seconds, url, markdown=False):
     return content if markdown else f'<span class="time">{content}</span>'
 
 
-def generic(value, markdown=False, depth=0) -> str:
+def lens_text(value, url=""):
+    """Escape arbitrary text and link valid bracketed timestamps without parsing HTML."""
+    parts, end = [], 0
+    for match in re.finditer(r"\[(?:(\d+):)?(\d{1,2}):([0-5]\d)\]", str(value)):
+        hours, minutes, seconds = match.groups()
+        if hours is not None and int(minutes) >= 60:
+            continue
+        offset = int(hours or 0) * 3600 + int(minutes) * 60 + int(seconds)
+        parts.extend([esc(str(value)[end:match.start()]),
+                      '<span class="time">' + link(match.group(0), timestamp_url(url, offset)) + '</span>'])
+        end = match.end()
+    return "".join(parts) + esc(str(value)[end:])
+
+
+def generic(value, markdown=False, depth=0, url="", language="en") -> str:
     """Render nested future lenses as dictionaries and lists, never executable markup."""
     if isinstance(value, dict):
         if markdown:
             lines = []
             for key, child in value.items():
-                prefix = f"{'  ' * depth}- **{md(key)}:**"
+                prefix = f"{'  ' * depth}- **{md(label(key, language))}:**"
                 if isinstance(child, (dict, list)):
-                    lines.extend([prefix, generic(child, True, depth + 1)])
+                    lines.extend([prefix, generic(child, True, depth + 1, url, language)])
                 else:
-                    lines.append(f"{prefix} {generic(child, True).lstrip()}")
+                    lines.append(f"{prefix} {generic(child, True, url=url, language=language).lstrip()}")
             return "\n".join(lines)
-        return "<dl>" + "".join(f"<dt>{esc(key)}</dt><dd>{generic(child)}</dd>" for key, child in value.items()) + "</dl>"
+        return "<dl>" + "".join(f"<dt>{esc(label(key, language))}</dt><dd>{generic(child, url=url, language=language)}</dd>" for key, child in value.items()) + "</dl>"
     if isinstance(value, list):
         if markdown:
             lines = []
             for child in value:
                 if isinstance(child, (dict, list)):
-                    lines.extend(["  " * depth + "-", generic(child, True, depth + 1)])
+                    lines.extend(["  " * depth + "-", generic(child, True, depth + 1, url, language)])
                 else:
-                    lines.append("  " * depth + "- " + generic(child, True).lstrip())
+                    lines.append("  " * depth + "- " + generic(child, True, url=url, language=language).lstrip())
             return "\n".join(lines)
-        return "<ul>" + "".join(f"<li>{generic(child)}</li>" for child in value) + "</ul>"
+        return "<ul>" + "".join(f"<li>{generic(child, url=url, language=language)}</li>" for child in value) + "</ul>"
     text = "—" if value is None else str(value)
-    return ("  " * depth + md(text)) if markdown else esc(text)
+    return ("  " * depth + md(text)) if markdown else lens_text(text, url)
 
 
 def _transcript_segments(transcript):
@@ -237,33 +201,49 @@ def _transcript_segments(transcript):
     return transcript["segments"]
 
 
-def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, str]:
+def render_reports(analysis: dict, transcript=None, frames=None, *, frame_images=None) -> tuple[str, str]:
     validate_analysis(analysis)
     segments = _transcript_segments(transcript)
+    language = report_language(analysis, transcript)
+    tr = lambda key: label(key, language)
     video = analysis["video"]
     title, url = single_line(video["title"]), video["webpage_url"]
-    source = analysis["transcript_source"]
-    model = analysis["asr_model"]
-    channel = video.get("channel") or video.get("uploader") or "Unknown channel"
-    h = [f'<header><p class="muted">Video analysis</p><h1>{esc(title)}</h1>',
-         f'<div class="meta"><span>{esc(channel)}</span><span class="chip">{esc(source)}</span></div>',
-         f'<p>{link("Watch source video", url)}</p>']
-    m = [f"# {md(title)}", "", f"- Source: {link('Watch video', url, True)}",
-         f"- Channel: {md(channel)}", f"- Transcript: {md(source)}"]
+    text = lambda value: lens_text(value, url)
+    source, model = analysis["transcript_source"], analysis["asr_model"]
+    channel = video.get("channel") or video.get("uploader") or tr("unknown_channel")
+    counts = Counter(claim["verdict"] for claim in analysis["lenses"].get("claims", []))
+    metadata_line = [esc(channel)]
+    if video.get("upload_date"):
+        date = video["upload_date"]
+        if re.fullmatch(r"\d{8}", date):
+            date = f"{date[:4]}-{date[4:6]}-{date[6:]}"
+        metadata_line.append(esc(date))
+    if video.get("duration") is not None:
+        metadata_line.append(f'<span class="time">{esc(format_timestamp(video["duration"]))}</span>')
+    h = [f'<header><span class="chip">{esc(video.get("platform", tr("report")))}</span><h1>{esc(title)}</h1>',
+         '<div class="meta">' + '<span aria-hidden="true">·</span>'.join(f'<span>{v}</span>' for v in metadata_line) + '</div>',
+         f'<div class="source-row"><span class="chip">{esc(tr(source))}</span>{link(tr("watch"), url)}</div>']
+    m = [f"# {md(title)}", "", f"- {tr('source')}: {link(tr('watch'), url, True)}",
+         f"- {tr('channel')}: {md(channel)}", f"- {tr('transcript')}: {md(tr(source))}"]
     if model:
-        h.append(f'<p class="muted">ASR model: {esc(model)}</p>')
-        m.append(f"- ASR model: {md(model)}")
-    h.append("</header>")
+        h.append(f'<p class="source-caveat">{esc(tr("asr_model"))}: {esc(model)}</p>')
+        m.append(f"- {tr('asr_model')}: {md(model)}")
+    if source == "asr":
+        h.append(f'<p class="source-caveat">{esc(tr("asr_caveat"))}</p>')
+    h.extend([verdict_bar(counts, language), "</header>"])
+    if counts:
+        m.extend(["", f"## {tr('verdict_summary')}", "",
+                  *[f"- {tr(v)}: {counts[v]}" for v in VERDICTS if counts.get(v)]])
     metadata = {key: video[key] for key in ("platform", "upload_date", "duration", "view_count", "like_count", "description")
                 if video.get(key) is not None}
     if metadata:
-        h.append(f"<details><summary>Video details</summary>{generic(metadata)}</details>")
-        m.extend(["", "## Video details", "", generic(metadata, True)])
+        h.append(f'<details><summary>{esc(tr("details"))}</summary>{generic(metadata, url=url, language=language)}</details>')
+        m.extend(["", f"## {tr('details')}", "", generic(metadata, True, language=language)])
     if frames is not None:
         if not isinstance(frames, list):
             raise ValueError("frames.json: expected an array")
-        h.append('<section><h2>Frames</h2><div class="frame-strip">')
-        m.extend(["", "## Frames", ""])
+        h.append(f'<section><h2>{esc(tr("frames"))}</h2><div class="frame-strip">')
+        m.extend(["", f"## {tr('frames')}", ""])
         for frame in frames:
             if (not isinstance(frame, dict) or type(frame.get("t")) not in (int, float)
                     or not math.isfinite(frame["t"]) or frame["t"] < 0
@@ -272,83 +252,92 @@ def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, s
                 raise ValueError("frames.json: expected nonnegative t and a relative timestamp JPEG path")
             if video.get("duration") is not None and frame["t"] > video["duration"]:
                 raise ValueError("frames.json: timestamp exceeds video.duration")
-            label = format_timestamp(frame["t"])
-            h.append(f'<figure><img src="{esc(frame["path"])}" alt="Frame at {esc(label)}" '
-                     f'loading="lazy" width="512"><figcaption>{time_link(frame["t"], url)}</figcaption></figure>')
-            m.extend([f"![Frame at {md(label)}]({frame['path']}) {time_link(frame['t'], url, True)}", ""])
+            stamp = format_timestamp(frame["t"])
+            # Only bytes supplied by the local file writer can become image data.
+            image = (frame_images or {}).get(frame["path"])
+            if image is not None:
+                encoded = base64.b64encode(image).decode("ascii")
+                h.append(f'<figure><img src="data:image/jpeg;base64,{encoded}" '
+                         f'alt="{esc(tr("frame_at"))} {esc(stamp)}" loading="lazy" width="512" height="288">'
+                         f'<figcaption>{time_link(frame["t"], url)}</figcaption></figure>')
+            else:
+                h.append(f'<figure><figcaption>{esc(tr("frame_at"))} {time_link(frame["t"], url)}</figcaption></figure>')
+            m.extend([f"![{md(tr('frame_at'))} {md(stamp)}]({frame['path']}) {time_link(frame['t'], url, True)}", ""])
         h.append("</div></section>")
-    counts = Counter(claim["verdict"] for claim in analysis["lenses"].get("claims", []))
-    if counts:
-        h.append(verdict_bar(counts))
-        m.extend(["", "## Verdict summary", "", *[f"- {verdict.replace('-', ' ')}: {count}" for verdict, count in counts.items()]])
     for name, lens in analysis["lenses"].items():
+        heading = tr(name)
         if name == "summary":
-            h.append(f'<section><h2>Summary</h2><p>{esc(lens["tldr"])}</p><ul>')
-            h.extend(f"<li>{esc(point)}</li>" for point in lens["key_points"])
+            h.append(f'<section><h2>{esc(heading)}</h2><p>{text(lens["tldr"])}</p><ul>')
+            h.extend(f"<li>{text(point)}</li>" for point in lens["key_points"])
             h.append("</ul>")
-            m.extend(["", "## Summary", "", md(lens["tldr"]), ""])
+            m.extend(["", f"## {heading}", "", md(lens["tldr"]), ""])
             m.extend(f"- {md(point)}" for point in lens["key_points"])
             if lens["audience"] is not None:
-                h.append(f'<p class="muted">Audience: {esc(lens["audience"])}</p>')
-                m.extend(["", f"Audience: {md(lens['audience'])}"])
+                h.append(f'<p class="muted">{esc(tr("audience"))}: {text(lens["audience"])}</p>')
+                m.extend(["", f"{tr('audience')}: {md(lens['audience'])}"])
             h.append("</section>")
         elif name == "moments":
-            h.append("<section><h2>Key moments</h2>")
-            m.extend(["", "## Key moments", ""])
+            h.append(f"<section><h2>{esc(heading)}</h2>")
+            m.extend(["", f"## {heading}", ""])
             for moment in lens:
-                h.append(f'<div class="moment">{time_link(moment["t"], url)} '
-                         f'<strong>{esc(moment["title"])}</strong><p>{esc(moment["note"])}</p></div>')
+                h.append(f'<div class="moment">{time_link(moment["t"], url)}<div>'
+                         f'<h3>{text(single_line(moment["title"]))}</h3><p>{text(moment["note"])}</p></div></div>')
                 m.extend([f"### {time_link(moment['t'], url, True)} {md(single_line(moment['title']))}", "", md(moment["note"]), ""])
             h.append("</section>")
         elif name == "claims":
-            h.append("<section><h2>Claims</h2>")
-            h.append(claim_controls(counts))
-            m.extend(["", "## Claims", ""])
+            h.append(f'<section><h2>{esc(heading)}</h2><div id="claim-list">')
+            h.append(claim_controls(counts, language))
+            m.extend(["", f"## {heading}", ""])
             for claim in lens:
                 verdict = claim["verdict"]
-                colour = ("good" if verdict in ("true", "mostly-true") else "bad" if verdict in ("false", "mostly-false")
-                          else "warn" if verdict in ("half-true", "not-enough-evidence") else "")
-                label = verdict.replace("-", " ")
-                details = f"{claim['kind']} · Confidence: {claim['confidence']} · Rating: {claim['rating'] if claim['rating'] is not None else '—'}/5"
-                h.append(f'<article data-claim data-verdict="{esc(verdict)}"><span class="chip {colour}">{esc(label)}</span>'
-                         f'<h3>{esc(single_line(claim["claim_reviewed"]))}</h3>'
-                         f'<p class="muted">{esc(claim["id"])} · {time_link(claim["t"], url)} · {esc(details)}</p>'
-                         f'<blockquote>{esc(claim["quote"])}</blockquote><p>{esc(claim["rationale"])}</p>')
-                m.extend([f"### {md(single_line(claim['claim_reviewed']))}", "", f"**Verdict: {md(label)}**",
-                          f"{md(claim['id'])} · {time_link(claim['t'], url, True)} · {md(details)}", "",
+                details = f"{tr(claim['kind'])} · {tr('confidence')}: {tr(claim['confidence'])}"
+                h.append(f'<article data-claim data-verdict="{verdict}" style="--verdict:var(--{verdict})">'
+                         f'<div class="claim-verdict"><span>{esc(tr(verdict))}</span>{truth_meter(verdict, claim["rating"], language)}</div>'
+                         f'<h3>{text(single_line(claim["claim_reviewed"]))}</h3>'
+                         f'<p class="claim-meta">{time_link(claim["t"], url)} · {esc(details)}</p>'
+                         f'<blockquote>{text(claim["quote"])}</blockquote><p>{text(claim["rationale"])}</p>')
+                m.extend([f"### {md(single_line(claim['claim_reviewed']))}", "", f"**{tr('verdict')}: {tr(verdict)}**",
+                          f"{time_link(claim['t'], url, True)} · {md(details)} · {tr('rating')}: {claim['rating'] or '—'}/5", "",
                           md(claim["quote"]), "", md(claim["rationale"]), ""])
+                if claim["evidence"]:
+                    h.append('<ul class="evidence">')
                 for evidence in claim["evidence"]:
-                    dates = f"Published: {evidence['published'] or 'unknown'} · Retrieved: {evidence['retrieved']}"
-                    h.append(f'<div class="evidence"><p>{link(evidence["publisher"], evidence["url"])}</p>'
-                             f'<p>{esc(evidence["snippet"])}</p><p class="muted">{esc(dates)}</p></div>')
+                    dates = f"{tr('published')}: {evidence['published'] or tr('unknown')} · {tr('retrieved')}: {evidence['retrieved']}"
+                    h.append(f'<li><strong>{link(evidence["publisher"], evidence["url"])}</strong>'
+                             f'<p>{text(evidence["snippet"])}</p><p class="muted">{esc(dates)}</p></li>')
                     m.extend([f"- {link(evidence['publisher'], evidence['url'], True)} — {md(dates)}",
                               f"  {md(evidence['snippet'])}", ""])
+                if claim["evidence"]:
+                    h.append('</ul>')
                 h.append("</article>")
-            h.append("</section>")
+            h.append("</div></section>")
         elif name in ("steps", "mentions", "hook", "sources", "tone", "actions"):
-            from video_intel.lenses import TITLES, render_lens
+            from video_intel.lenses import render_lens
 
-            lens_html, lens_md = render_lens(name, lens, url)
-            h.append(f'<section><h2>{TITLES[name]}</h2>{lens_html}</section>')
-            m.extend(["", f"## {TITLES[name]}", "", lens_md])
+            lens_html, lens_md = render_lens(name, lens, url, language)
+            h.append(f'<section><h2>{esc(heading)}</h2>{lens_html}</section>')
+            m.extend(["", f"## {heading}", "", lens_md])
         else:
-            h.append(f"<section><h2>{esc(single_line(name))}</h2>{generic(lens)}</section>")
-            m.extend(["", f"## {md(single_line(name))}", "", generic(lens, True)])
+            h.append(f'<section><h2>{esc(single_line(name))}</h2>{generic(lens, url=url, language=language)}</section>')
+            m.extend(["", f"## {md(single_line(name))}", "", generic(lens, True, language=language)])
     caveats = list(analysis["caveats"])
     if source == "asr":
-        caveats.append("Machine transcription may distort names and numbers; check the source audio.")
+        caveats.append(tr("asr_caveat"))
     if caveats:
-        h.append("<section><h2>Caveats</h2><ul>" + "".join(f"<li>{esc(c)}</li>" for c in caveats) + "</ul></section>")
-        m.extend(["", "## Caveats", ""] + [f"- {md(c)}" for c in caveats])
+        h.append(f'<section><h2>{esc(tr("caveats"))}</h2><ul>' + "".join(f"<li>{text(c)}</li>" for c in caveats) + "</ul></section>")
+        m.extend(["", f"## {tr('caveats')}", ""] + [f"- {md(c)}" for c in caveats])
     if segments:
-        h.append('<section class="transcript"><h2>Transcript</h2>')
-        m.extend(["", "## Transcript", ""])
+        h.append(f'<section class="transcript"><h2>{esc(tr("transcript"))}</h2>'
+                 f'<details id="full-transcript"><summary>{esc(tr("show_transcript"))} '
+                 f'<span class="muted">· {len(segments)} {esc(tr("segments"))}</span></summary>'
+                 f'<label class="transcript-search">{esc(tr("search_transcript"))}<input id="transcript-search" type="search"></label>')
+        m.extend(["", f"## {tr('transcript')}", ""])
         for segment in segments:
-            h.append(f'<p>{time_link(segment["start"], url)} {esc(segment["text"])}</p>')
+            h.append(f'<p data-transcript-segment>{time_link(segment["start"], url)} {esc(segment["text"])}</p>')
             m.extend([f"{time_link(segment['start'], url, True)} {md(segment['text'])}", ""])
-        h.append("</section>")
+        h.append("</details></section>")
     markdown = "\n".join(m) + "\n"
-    return make_document(title, "\n".join(h), markdown), markdown
+    return make_document(title, "\n".join(h), markdown, language, counts), markdown
 
 
 def write_report(run_dir: Path) -> tuple[Path, Path]:
@@ -367,7 +356,16 @@ def write_report(run_dir: Path) -> tuple[Path, Path]:
     transcript = read_json(transcript_path) if transcript_path.is_file() else None
     frames_path = run_dir / "frames.json"
     frames = read_json(frames_path) if frames_path.is_file() else None
-    document, markdown = render_reports(analysis, transcript, frames)
+    images = {}
+    if isinstance(frames, list):
+        for frame in frames:
+            path = frame.get("path") if isinstance(frame, dict) else None
+            if isinstance(path, str) and re.fullmatch(r"frames/\d{4,}\.\d{2}\.jpg", path):
+                image_path = (run_dir / path).resolve()
+                if not image_path.is_relative_to(run_dir.resolve()):
+                    raise ValueError("Frame image must remain inside the run directory")
+                images[path] = image_path.read_bytes()
+    document, markdown = render_reports(analysis, transcript, frames, frame_images=images)
     html_path, md_path = run_dir / "report.html", run_dir / "report.md"
     html_path.write_text(document, encoding="utf-8")
     md_path.write_text(markdown, encoding="utf-8")

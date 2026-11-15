@@ -107,9 +107,11 @@ The agent writes `analysis.json` against [`analysis.schema.json`](video_intel/sc
 }
 ```
 
+Optional `"report_language": "tr"` or `"report_language": "en"` selects all report interface labels (also supported in `compare.json`). Without it, the renderer uses `transcript.json` language when it is `tr` or `en`, otherwise English; comparison uses the first available transcript. Analysis prose is preserved.
+
 Known lenses (`summary`, `moments`, `claims`, `mentions`, `actions`, `steps`, `hook`, `sources`, `tone`) get dedicated sections; any other lens renders generically, so a new lens needs no code change. Claims follow Google's [ClaimReview](https://developers.google.com/search/docs/appearance/structured-data/factcheck) shape. Metadata from `meta.json` always wins over the agent's copy.
 
-`report.html` is a single file: inline CSS/JS, no external requests (CSP `default-src 'none'`), light/dark, mobile-first at 390 px, table of contents, verdict counts, claim search and filters, copy-as-Markdown, print layout. All text is escaped and links are restricted to http(s). Timestamps deep-link on YouTube; other platforms show plain times.
+`report.html` is a single file: inline CSS/JS, no external requests (CSP `default-src 'none'`), light/dark, mobile-first at 390 px, sticky table of contents, a proportional verdict bar and five-dot truth meters, claim search and filters, copy-as-Markdown, print layout. The full transcript starts collapsed and can be searched. Frame images are embedded in the HTML as JPEG data URLs, in a lazy-loaded horizontal gallery. All text is escaped and links are restricted to http(s). Timestamps deep-link on YouTube; other platforms show plain times.
 
 ## Claude skill
 

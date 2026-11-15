@@ -213,8 +213,11 @@ def test_frames_cli(frame_run):
 def test_frames_report_strip(tmp_path):
     (tmp_path/'analysis.json').write_text(json.dumps(analysis()))
     (tmp_path/'frames.json').write_text(json.dumps([{'t':12.34,'path':'frames/0012.34.jpg'}]))
+    (tmp_path/'frames').mkdir()
+    (tmp_path/'frames/0012.34.jpg').write_bytes(b'\xff\xd8\xff\xd9')
     document = write_report(tmp_path)[0].read_text()
-    assert 'src="frames/0012.34.jpg"' in document and 'loading="lazy"' in document
+    assert 'src="data:image/jpeg;base64,/9j/2Q=="' in document and 'loading="lazy"' in document
+    assert 'width="512" height="288"' in document
     assert '&amp;t=12' in document
 
 
@@ -286,12 +289,12 @@ def test_compare_schema_and_render(tmp_path, comparison):
     path.write_text(json.dumps(comparison))
     html_path, md_path = write_compare(path)
     document, markdown = html_path.read_text(), md_path.read_text()
-    for text in ['Shared topic','Common claims','Contradictions','Who says what','Unique points','Overall verdict','not-checked','Author one']:
+    for text in ['Shared topic','Common claims','Contradictions','Who says what','Unique points','Overall verdict','Not checked','Author one']:
         assert text in document and text in markdown
     assert 'href="run%20one/report.html">v1</a>' in document
     assert '[v1](run%20one/report.html)' in markdown
     assert '&amp;t=12' in document and 'https://x.com/u/status/1?t=20' not in document
-    assert 'not checked: 1' in document and 'id="claim-search"' in document
+    assert 'aria-label="Not checked: 1"' in document and 'id="claim-search"' in document
     assert run_cli(['report','--compare',str(path)])[0] == 0
 
 
@@ -371,7 +374,7 @@ def test_controls_counts_copy_payload_csp_and_print():
              'rating':5,'confidence':'high','rationale':'Evidence','evidence':[]}
     data = analysis({'claims':[claim,dict(claim,id='c2'),dict(claim,id='c3',verdict='false',rating=1)]})
     document, markdown = render_reports(data)
-    assert 'true: 2' in document and 'false: 1' in document
+    assert 'aria-label="True: 2"' in document and 'aria-label="False: 1"' in document
     assert 'id="claim-search"' in document and 'id="claim-verdict"' in document
     assert 'Copy as Markdown' in document and 'aria-label="Table of contents"' in document
     digest = base64.b64encode(hashlib.sha256(SCRIPT.encode()).digest()).decode()
@@ -492,3 +495,34 @@ def test_frames_missing_showinfo_is_failure(frame_run):
             pytest.raises(VideoIntelError,match='no timestamped frames'):
         frames.extract_frames(frame_run)
     assert not list(frame_run.glob('.video-*'))
+
+
+@pytest.mark.parametrize('name', list(LENSES))
+@pytest.mark.parametrize('language', ['tr', 'en'])
+def test_expansion_lens_labels_and_inline_timestamps(name, language):
+    from video_intel.presentation import label
+    lens = copy.deepcopy(LENSES[name])
+    # Put a bracketed timestamp in each lens's narrative, not its numeric t field.
+    if name == 'steps':
+        lens['goal'] += ' [01:09]'
+    elif name == 'hook':
+        lens['hook']['why'] += ' [01:09]'
+    elif name == 'tone':
+        lens['overall']['note'] += ' [01:09]'
+    else:
+        key = {'mentions': 'context', 'sources': 'note', 'actions': 'why'}[name]
+        lens[0][key] += ' [01:09]'
+    data = dict(analysis({name: lens}), report_language=language)
+    document, markdown = render_reports(data)
+    visible = document.split('<textarea', 1)[0]
+    assert label(name, language) in visible
+    assert f'## {label(name, language)}' in markdown
+    assert f'href="{URL}&amp;t=69">[01:09]</a>' in visible
+    # Every label below is fixed interface copy belonging to this lens.
+    keys = {'steps':['prerequisites','tools','warning','outcome'],
+            'mentions':['verified','official','retrieved'],
+            'sources':['specificity','found','supports','published','retrieved'],
+            'actions':['priority','effort'], 'tone':['shifts','techniques','bias_signals','disclosure'],
+            'hook':['opening','on_screen','structure','pacing','on_screen_text','template','weaknesses']}[name]
+    import html
+    assert all(label(key, language) in html.unescape(visible) for key in keys)
