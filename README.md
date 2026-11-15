@@ -5,7 +5,7 @@ Turn a video link from **YouTube, Instagram, X/Twitter, TikTok** (or any single-
 - **Transcript:** platform captions first; when there are none, the audio is transcribed locally with [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) (`whisper-large-v3-turbo`, Apple Silicon). No API key, nothing leaves the machine.
 - **Frames:** scene-change keyframes so an agent can read on-screen text, slides, code and products (reels are often text-on-screen with music).
 - **Report:** a self-contained `report.html` + `report.md` rendered from an `analysis.json` that an agent writes: summary, key moments, fact-checked claims with sources, mentions, actions, tutorial steps, short-video hook analysis, cited sources, tone and sponsorship, plus multi-video comparison.
-- **Claude skill included:** [`skills/video-analiz`](skills/video-analiz/SKILL.md) tells an agent how to fetch, analyse with pluggable *lenses*, research claims on the web, and render the report.
+- **Claude skill included:** [`skills/video-analysis`](skills/video-analysis/SKILL.md) tells an agent how to fetch, analyse with pluggable *lenses*, research claims on the web, and render the report.
 
 The split is deliberate: the CLI does the deterministic work (download, transcribe, validate, render) and is fully tested offline; the agent does the thinking (analysis, web research, verdicts).
 
@@ -115,7 +115,7 @@ Known lenses (`summary`, `moments`, `claims`, `mentions`, `actions`, `steps`, `h
 
 ## Claude skill
 
-[`skills/video-analiz`](skills/video-analiz) is the agent side: modes (direct answer, report, compare), error handling, lens selection, claim research rules, and [`evals/`](skills/video-analiz/evals) in the `claude plugin eval` layout. Install by copying or symlinking the folder into `~/.claude/skills/video-analiz` (and `~/.codex/skills/` for Codex). Add a lens by adding one `lenses/<name>.md` file.
+[`skills/video-analysis`](skills/video-analysis) is the agent side: modes (direct answer, report, compare), error handling, lens selection, claim research rules, and [`evals/`](skills/video-analysis/evals) in the `claude plugin eval` layout. Install by copying or symlinking the folder into `~/.claude/skills/video-analysis` (and `~/.codex/skills/` for Codex). Add a lens by adding one `lenses/<name>.md` file.
 
 The copy in this repo is synced from the maintainer's skills folder with `scripts/sync-skill.sh`.
 
@@ -146,7 +146,7 @@ Flags: `--lang`, `--timestamps`, `--out` (default `./output` or `YT_CAPTIONS_OUT
 video_intel/          fetch, ASR, frames, window, doctor, report, compare, validation
 video_intel/schema/   analysis + compare JSON schemas
 youtube_transcript/   legacy CLI and shared caption helpers
-skills/video-analiz/  Claude skill (SKILL.md, lenses/, evals/)
+skills/video-analysis/  Claude skill (SKILL.md, lenses/, evals/)
 docs/                 design spec
 tests/                offline test suite
 ```

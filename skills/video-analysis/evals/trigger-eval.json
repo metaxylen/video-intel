@@ -1,0 +1,82 @@
+[
+  {
+    "query": "https://www.youtube.com/watch?v=eGmZZFJ-8PY This guy says he used to recruit at Google. Research whether what he says about resumes is actually true.",
+    "should_trigger": true
+  },
+  {
+    "query": "A friend sent me this reel https://www.instagram.com/reel/DX7lzTOJ1p6/ praising a Dyson product. Can you tell whether it is an advertisement?",
+    "should_trigger": true
+  },
+  {
+    "query": "I saw this video on X https://x.com/NASA/status/2041171245027541434 What are they saying, who is speaking, and can you summarise it?",
+    "should_trigger": true
+  },
+  {
+    "query": "can you pull the steps out of this tutorial so I don't have to watch 40 minutes of it? https://www.youtube.com/watch?v=dQw4w9WgXcQ I just need the commands he types",
+    "should_trigger": true
+  },
+  {
+    "query": "Why did this TikTok get so many views? What happens in the first three seconds? I want to adapt it for my own content. https://www.tiktok.com/@bbcnews/video/7623948383312465174",
+    "should_trigger": true
+  },
+  {
+    "query": "These two videos seem to contradict each other about AI agents. Compare who is right: https://www.youtube.com/watch?v=IZAlq-V19U8 https://www.youtube.com/watch?v=950byF7njfw",
+    "should_trigger": true
+  },
+  {
+    "query": "I want a deep analysis of this video: extract every tool, source, claim, its tone, and any sponsorship, and produce a report. https://youtu.be/S3l7U7gOsyY",
+    "should_trigger": true
+  },
+  {
+    "query": "https://www.youtube.com/watch?v=FESNAh3gNyQ",
+    "should_trigger": true
+  },
+  {
+    "query": "this keynote video claims agents improved 40% on some benchmark - https://www.youtube.com/watch?v=950byF7njfw - can you check which benchmark and whether the number holds up",
+    "should_trigger": true
+  },
+  {
+    "query": "This reel has on-screen text but no speech. Tell me what the text says and what the product is. https://www.instagram.com/reel/DDmBy_zRria/",
+    "should_trigger": true
+  },
+  {
+    "query": "I have a two-hour Zoom recording at ~/Downloads/meeting.m4a. Can you transcribe it and produce meeting notes?",
+    "should_trigger": false
+  },
+  {
+    "query": "I am uploading a new video to my YouTube channel. Suggest a title and description; the topic is automation with Claude Code.",
+    "should_trigger": false
+  },
+  {
+    "query": "Write an ffmpeg command to trim ~/Movies/clip.mp4 to 30 seconds and convert it to vertical 9:16 format.",
+    "should_trigger": false
+  },
+  {
+    "query": "How does the Instagram Reels algorithm work in 2026, and when is the best time to post? Explain the general strategy.",
+    "should_trigger": false
+  },
+  {
+    "query": "I want to make a 15-second restaurant advertisement with Remotion. Where should I start?",
+    "should_trigger": false
+  },
+  {
+    "query": "What exactly does the yt-dlp --cookies-from-browser parameter do, is it safe, and what does the documentation say?",
+    "should_trigger": false
+  },
+  {
+    "query": "Summarise this article and check its claims: https://www.theverge.com/2026/11/10/ai-agents-benchmark",
+    "should_trigger": false
+  },
+  {
+    "query": "the video_intel/report.py renderer throws a KeyError on lenses.hook when analysis.json has no frames, can you debug it",
+    "should_trigger": false
+  },
+  {
+    "query": "Write 10 short TikTok hooks in Turkish about productivity while working from home.",
+    "should_trigger": false
+  },
+  {
+    "query": "Write a Python script using the YouTube Data API to fetch view counts for the last 50 videos on my channel.",
+    "should_trigger": false
+  }
+]

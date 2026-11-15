@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-SRC="${1:-$HOME/Desktop/superskills/skills/video-analiz}"
-DST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/video-analiz"
+SRC="${1:-$HOME/Desktop/superskills/skills/video-analysis}"
+DST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/skills/video-analysis"
 if [ ! -f "$SRC/SKILL.md" ]; then
   echo "error: $SRC/SKILL.md not found" >&2
   exit 1

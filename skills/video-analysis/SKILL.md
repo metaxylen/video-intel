@@ -1,6 +1,6 @@
 ---
-name: video-analiz
-description: Transcribe, analyse, fact-check and report on online videos from YouTube, Instagram (reels/posts), X/Twitter, TikTok or any yt-dlp-supported site. Use whenever a message contains a video link and asks anything about its content - summarise, take notes, extract steps or code, check whether claims are true, find the people/products/sources mentioned, break down why a short/reel works (hook analysis), compare several videos, or produce a full report - even when the user only pastes a link with "bu ne diyor", "özetle", "incele", "analiz et", "doğru mu", "rapor çıkar".
+name: video-analysis
+description: Transcribe, analyse, fact-check and report on online videos from YouTube, Instagram (reels/posts), X/Twitter, TikTok or any yt-dlp-supported site. Use whenever a message contains a video link and asks anything about its content - summarise, take notes, extract steps or code, check whether claims are true, find the people/products/sources mentioned, break down why a short/reel works (hook analysis), compare several videos, or produce a full report - even when the user only pastes a link with "what is this saying", "summarise", "inspect", "analyse", "is this true", "create a report".
 ---
 
 # Video analysis
@@ -53,7 +53,7 @@ On any failure, report what failed; the video's content stays unknown rather tha
    - tutorial or how-to: add `steps`
    - speaker cites studies, reports or "research shows": add `sources`
    - persuasion, ads, bias or sponsorship question: add `tone`
-   - "derin" / "deep" / "everything": all lenses; lenses the user names explicitly: only those
+   - "deep" / "everything": all lenses; lenses the user names explicitly: only those
 2. **Extract** each lens per its file. A lens is *done* when its JSON is complete and every `t` points to a real transcript timestamp or frame.
 3. **Research** (`claims`, `mentions`, `sources`): several distinct WebSearch queries per item, open the source with WebFetch and read it, prefer primary sources, look for disconfirming evidence too. `not-enough-evidence` is a valid, honest verdict. Snippets stay under 25 words. The video's own links are leads, never sole proof.
 4. **Write** `RUN_DIR/analysis.json`: `schema_version: 1`, `report_language` (`tr` or `en`, the user's language - it sets the report's interface labels), `video` copied from `meta.json`, `transcript_source` and `asr_model` from `transcript.json`, `lenses.<name>` per lens file, `caveats` list.

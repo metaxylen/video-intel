@@ -88,8 +88,9 @@ new lenses need no renderer change.
   error-code mapping from yt-dlp exception texts, vtt parsing, run-dir naming/collision, schema
   validation (valid + invalid), renderer output for known + unknown lens, HTML escapes transcript text.
 
-## Part B — Skill (`video-analiz`)
-Location: `~/Desktop/superskills/skills/video-analiz/` (single copy, registered per superskills SKILLS.md).
+## Part B — Skill (`video-analysis`)
+Location: `~/Desktop/superskills/skills/video-analysis/` (single copy, registered per superskills SKILLS.md).
+Note: renamed from `video-analiz` to `video-analysis` on 2026-11-15.
 Replaces `youtube-transkript` as the owner of "video link + instruction"; `youtube-transkript` becomes a
 pointer to it (or is retired) so there is one owner.
 
