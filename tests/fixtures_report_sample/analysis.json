@@ -1,0 +1,235 @@
+{
+ "schema_version": 1,
+ "video": {
+  "upload_date": "20250916",
+  "duration": 580,
+  "description": "🔥 Get my Job Seekers Toolkit: https://stan.store/farahsharghi/p/get-my-job-seekers-toolkit-now\n🔥 Book a 1:1: https://stan.store/farahsharghi/p/book-a-1hour-career-coaching-session-with-me-eq3bs\n\nYou've applied to hundreds of jobs. Nothing. Not even a rejection email.\nIt's not you. It's the mistakes no one ever told you about.\n\nAs an ex-Google recruiter who's reviewed thousands of resumes and sat in countless hiring meetings, I'm exposing the 6 hidden reasons your resume gets rejected before anyone even reads it.\n\n▶ You'll discover:\n\nWhy the \"perfect\" candidate rarely gets hired (and who does instead)\nThe deadly resume gaps that make recruiters create their own story about you\nHow using the wrong verbs instantly makes you look junior\nWhy your 15 years of experience might be working against you\nThe 3-part formula that makes any resume feel complete\n\nStop wondering if you're the problem. Start understanding what hiring managers actually want: someone who looks safe, sounds senior, and signals they can solve today's problems.\n\nThese aren't tips. These are the unspoken rules that get you interviews.\n\nCONNECT WITH ME:\nWork with me: https://stan.store/farahsharghi \nLinkedIn: https://www.linkedin.com/in/fsharghi/",
+  "view_count": 445983,
+  "like_count": 14604,
+  "id": "eGmZZFJ-8PY",
+  "title": "Ex-Google Recruiter Explains: 6 Résumé Secrets That Get You Hired",
+  "uploader": "Farah Sharghi",
+  "channel": "Farah Sharghi",
+  "webpage_url": "https://www.youtube.com/watch?v=eGmZZFJ-8PY",
+  "platform": "youtube"
+ },
+ "transcript_source": "captions-auto",
+ "asr_model": null,
+ "lenses": {
+  "summary": {
+   "tldr": "Eski bir Google recruiter'ı olduğunu söyleyen Farah Sharghi, CV'lerin işe alım yöneticisine 'güvenli' görünmesi gerektiğini savunuyor ve 6 kural veriyor. Sonuç: her madde ölçülebilir sonuç, açık dil ve güncel alaka göstermeli.",
+   "key_points": [
+    "Yöneticiler en parlak adayı değil, işi zorlaştırmayacak 'güvenli' adayı arar; her madde sonuç göstermeli [01:09].",
+    "Boşluk, kısa görev, geçiş gibi riskli noktalar CV'de bir cümleyle açıklanmalı; sessizlik risk demek [03:04].",
+    "Başka sektöre geçerken ilan diline uyarak beceriler çevrilmeli [04:47].",
+    "Maddenin ilk fiili kıdemi belirler: 'help/supported' yerine 'led/drove/owned' [05:56].",
+    "CV hayat hikayesi değil sinyaldir; son 5-7 yıl öne çıkmalı, eski işler 2-3 maddeye inmeli [07:56].",
+    "İyi CV teknik, iş etkisi ve liderliği dengeler [08:51]."
+   ],
+   "audience": "Yanıt alamayan, özellikle kariyer değiştiren veya uzun deneyimli iş arayanlar (çıkarım: ABD/ingilizce piyasa)."
+  },
+  "moments": [
+   {
+    "t": 33,
+    "title": "Secret 1: güvenli eller",
+    "note": "Yöneticiler güvenli adayı seçer."
+   },
+   {
+    "t": 118,
+    "title": "Kötü ve iyi madde örneği",
+    "note": "'Maliyeti %15 düşürdü' örneği."
+   },
+   {
+    "t": 147,
+    "title": "Secret 2: riski sayfada açıkla",
+    "note": "Boşluk ve kısa görevler açıklanmalı."
+   },
+   {
+    "t": 258,
+    "title": "Secret 3: beceri çevirisi",
+    "note": "İlan diliyle eşleştir."
+   },
+   {
+    "t": 349,
+    "title": "Secret 4: güçlü fiiller",
+    "note": "İlk kelime kıdemi belirler."
+   },
+   {
+    "t": 432,
+    "title": "Secret 5: CV bir sinyaldir",
+    "note": "Son 5-7 yıl öne çıkar."
+   },
+   {
+    "t": 505,
+    "title": "Secret 6: çok yönlü güç",
+    "note": "Teknik, etki ve liderlik dengesi."
+   },
+   {
+    "t": 575,
+    "title": "Sonraki video tanıtımı",
+    "note": "Mülakat sinyalleri videosuna yönlendirme."
+   }
+  ],
+  "claims": [
+   {
+    "id": "c1",
+    "claim_reviewed": "Recruiter'lar CV'yi hızlıca tarar; unvanlara ve madde başı fiile bakar",
+    "quote": "the first thing we see are the job titles and the first word of every bullet",
+    "t": 349,
+    "kind": "fact",
+    "verdict": "half-true",
+    "rating": 3,
+    "confidence": "medium",
+    "rationale": "Hızlı tarama (ort. 7,4 sn) Ladders çalışmasıyla destekleniyor, ancak HR Dive özeti hangi içeriğe bakıldığını vermiyor; 'ilk fiil' iddiası bağımsız teyit bulamadı. Çalışma 2018, satıcı yayını ve küçük örneklem olabilir.",
+    "evidence": [
+     {
+      "url": "https://www.hrdive.com/news/eye-tracking-study-shows-recruiters-look-at-resumes-for-7-seconds/541582/",
+      "publisher": "HR Dive",
+      "published": "2018-11-08",
+      "retrieved": "2026-11-15",
+      "snippet": "Today's recruiters skim resumes for an average of 7.4 seconds."
+     }
+    ]
+   },
+   {
+    "id": "c2",
+    "claim_reviewed": "CV son 5-7 yıla odaklanmalı; eski işler 2-3 maddeye indirilmeli",
+    "quote": "Your resume should really highlight the last 5 to seven years.",
+    "t": 476,
+    "kind": "advice",
+    "verdict": "mostly-true",
+    "rating": 4,
+    "confidence": "low",
+    "rationale": "Yaygın tavsiye 10-15 yıl; yalnızca gayriresmi bir ankette işe alım yöneticilerinin çoğu 5 yıl dedi, recruiter ve koçlar 10. Yani 'yakın geçmişe ağırlık' doğru, 5-7 yıl sınırı biraz dar.",
+    "evidence": [
+     {
+      "url": "https://optimcareers.com/expert-articles/how-far-back-should-a-resume-go",
+      "publisher": "Optim Careers",
+      "published": null,
+      "retrieved": "2026-11-15",
+      "snippet": "the majority of hiring managers I spoke with responded with only 5 years."
+     }
+    ]
+   },
+   {
+    "id": "c3",
+    "claim_reviewed": "Açıklanmayan CV boşluğu/kısa görev recruiter'ı olumsuz yoruma iter",
+    "quote": "in recruiting, silence equals risk",
+    "t": 184,
+    "kind": "fact",
+    "verdict": "mostly-true",
+    "rating": 4,
+    "confidence": "medium",
+    "rationale": "MyPerfectResume anketine göre her 10 yönetici ten 3'ü boşlukları hâlâ olumsuz görüyor; tutumlar yumuşasa da bir cümlelik açıklama mantıklı. 'Her recruiter 200 CV bakar' kısmı örnekleme, veri değil.",
+    "evidence": [
+     {
+      "url": "https://www.worklife.news/talent/job-gap-reality-check-how-hrs-hiring-assumptions-prevent-nabbing-top-talent/",
+      "publisher": "WorkLife",
+      "published": "2025-06-17",
+      "retrieved": "2026-11-15",
+      "snippet": "3 in 10 hiring managers still treat them like a scarlet letter."
+     }
+    ]
+   },
+   {
+    "id": "c4",
+    "claim_reviewed": "Konuşmacı eski Google recruiter'ı ve binlerce CV okudu",
+    "quote": "after reading thousands of resumes in my career and sitting in hiring meetings",
+    "t": 27,
+    "kind": "fact",
+    "verdict": "not-enough-evidence",
+    "rating": null,
+    "confidence": "low",
+    "rationale": "Herkese açık LinkedIn profilinde Google geçmiyor; öneri yazıları 'büyük teknoloji şirketleri' diyor ama isim vermiyor. Deneyim görünmeyen bölümde olabilir; teyit edilemedi, yanlışlandığı da söylenemez.",
+    "evidence": []
+   },
+   {
+    "id": "c5",
+    "claim_reviewed": "Yöneticiler en nitelikli değil 'güvenli' adayı tercih eder",
+    "quote": "They just want someone who feels safe",
+    "t": 42,
+    "kind": "opinion",
+    "verdict": "not-checkable",
+    "rating": null,
+    "confidence": "low",
+    "rationale": "Genelleme ve kişisel deneyim; doğrudan sınanabilir veri yok.",
+    "evidence": []
+   }
+  ],
+  "mentions": [
+   {
+    "name": "Farah Sharghi",
+    "type": "person",
+    "t": 0,
+    "context": "Videonun sunucusu, kendini ex-Google recruiter olarak tanıtıyor.",
+    "sentiment": "neutral",
+    "url": "https://www.linkedin.com/in/fsharghi/",
+    "retrieved": "2026-11-15",
+    "verified": true
+   },
+   {
+    "name": "Job Seekers Toolkit (Stan Store)",
+    "type": "product",
+    "t": 0,
+    "context": "Açıklamada satılan ürün ve 1:1 koçluk; videoda geçmez, kanalın ticari bağlantısı.",
+    "sentiment": "ad",
+    "url": null,
+    "retrieved": null,
+    "verified": false
+   }
+  ],
+  "actions": [
+   {
+    "id": "a1",
+    "t": 118,
+    "action": "Her CV maddesini 'ne yaptım, ölçülebilir sonuç, ne zaman' biçiminde yeniden yaz (örn. 'Q2 2024'te maliyeti %15 düşürdü')",
+    "why": "Videoya göre belirsiz maddeler riskli görünür.",
+    "effort": "hours",
+    "priority": "high",
+    "depends_on": null
+   },
+   {
+    "id": "a2",
+    "t": 349,
+    "action": "Her maddeyi led, drove, launched, owned gibi sahiplik fiiliyle başlat; help/supported/worked on kullanma",
+    "why": "İlk kelime kıdem algısını belirler.",
+    "effort": "hours",
+    "priority": "high",
+    "depends_on": "a1"
+   },
+   {
+    "id": "a3",
+    "t": 184,
+    "action": "Boşluk veya 3 aylık işler için tek satırlık neden ekle",
+    "why": "Açıklanmayan boşluk riskli görünür; 3/10 yönetici hâlâ olumsuz bakıyor.",
+    "effort": "minutes",
+    "priority": "medium",
+    "depends_on": null
+   },
+   {
+    "id": "a4",
+    "t": 298,
+    "action": "Hedef ilandaki ifadeleri maddelere yansıt",
+    "why": "Recruiter tanıdık sinyal arar.",
+    "effort": "hours",
+    "priority": "medium",
+    "depends_on": "a1"
+   },
+   {
+    "id": "a5",
+    "t": 476,
+    "action": "Eski işleri 2-3 maddeye indir (son 5-10 yıla odaklan)",
+    "why": "Alaka dışı gürültüyü azaltır; 5-7 yıl sınırı kesin değil.",
+    "effort": "minutes",
+    "priority": "low",
+    "depends_on": null
+   }
+  ]
+ },
+ "caveats": [
+  "Transkript otomatik altyazı (captions-auto): sayı ve isimler yanlış duyulmuş olabilir.",
+  "Bazı kaynaklar (LinkedIn Bock yazısı, Inc.) 403 verdi; 'XYZ formülü' iddiası açılıp okunamadığı için değerlendirmeye alınmadı.",
+  "Kanal satıcı: açıklamada ücretli toolkit ve koçluk var; video bir ölçüde pazarlama içeriği.",
+  "Doğrulamada kullanılan kaynaklar çoğunlukla küçük/gayriresmi anketler ve blog; kesin veri değil."
+ ]
+}

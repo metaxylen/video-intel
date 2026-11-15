@@ -5,6 +5,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+
+def load_urls_from_file(path: Path) -> list[str]:
+    """Shared batch input: one URL per line, ignoring blanks and # comments."""
+    return [line.strip() for line in path.read_text(encoding="utf-8-sig").splitlines()
+            if line.strip() and not line.strip().startswith("#")]
+
+
 _ILLEGAL_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _WHITESPACE = re.compile(r"\s+")
 

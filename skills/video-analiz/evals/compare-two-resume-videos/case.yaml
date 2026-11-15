@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: compare-two-resume-videos
+expected_outcome: |
+  Both videos are fetched, each gets an analysis.json with at least summary and claims, a compare.json with common_claims, contradictions and who_says_what is written under ~/video-reports/*-compare-*, video-intel report --compare exits 0.
