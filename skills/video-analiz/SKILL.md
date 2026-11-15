@@ -43,7 +43,7 @@ On any failure, report what failed; the video's content stays unknown rather tha
 
 ## 3. Read the evidence
 - Read `transcript.md` completely. For long files read in chunks and keep running notes (topic, claim, `[mm:ss]`); the transcript is *read* when every chunk has been covered.
-- Read every frame listed in `frames.json`; a frame's file name is its timestamp in seconds.
+- Frames (a frame's file name is its timestamp in seconds): in Report mode read every frame in `frames.json`. In Direct mode read the first and last frame plus the frames nearest to moments the transcript points at ("look at this", a product, a slide, a number on screen) - enough to answer, then stop.
 - Check the header's `source`: `asr` or `captions-auto` means names, numbers and jargon may be misheard. Say so once; in Report mode add it to `caveats`.
 
 ## 4. Report mode
@@ -56,7 +56,7 @@ On any failure, report what failed; the video's content stays unknown rather tha
    - "derin" / "deep" / "everything": all lenses; lenses the user names explicitly: only those
 2. **Extract** each lens per its file. A lens is *done* when its JSON is complete and every `t` points to a real transcript timestamp or frame.
 3. **Research** (`claims`, `mentions`, `sources`): several distinct WebSearch queries per item, open the source with WebFetch and read it, prefer primary sources, look for disconfirming evidence too. `not-enough-evidence` is a valid, honest verdict. Snippets stay under 25 words. The video's own links are leads, never sole proof.
-4. **Write** `RUN_DIR/analysis.json`: `schema_version: 1`, `video` copied from `meta.json`, `transcript_source` and `asr_model` from `transcript.json`, `lenses.<name>` per lens file, `caveats` list.
+4. **Write** `RUN_DIR/analysis.json`: `schema_version: 1`, `report_language` (`tr` or `en`, the user's language - it sets the report's interface labels), `video` copied from `meta.json`, `transcript_source` and `asr_model` from `transcript.json`, `lenses.<name>` per lens file, `caveats` list.
 5. **Render**:
    ```bash
    video-intel report RUN_DIR

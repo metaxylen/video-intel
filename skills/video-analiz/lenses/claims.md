@@ -14,11 +14,12 @@ Checks the video's most consequential, verifiable claims against the web. The sh
 4. When sources are missing or conflict, use `not-enough-evidence` with `confidence: low`. A verdict rests on evidence.
 5. `snippet`: at most 25 words, in the source's own words. `retrieved`: today's date (`YYYY-MM-DD`). `published`: the page's date when it shows one.
 6. In ASR transcripts numbers and names may be garbled. When in doubt, search for the correct spelling first and note it in `rationale`.
+7. Credential and identity claims ("ex-Google recruiter", "doctor", "built a $10M company"): search news coverage, interviews, conference bios and company pages, not only a profile page. A profile that does not list something is absence of a listing, not evidence against the claim; reach a verdict from what independent sources say, and name them.
 
 ## Verdict
 `verdict` and `rating`: `true` 5, `mostly-true` 4, `half-true` 3, `mostly-false` 2, `false` 1. For `not-enough-evidence` and `not-checkable`, `rating` is `null`. `rationale` is 1-3 sentences: which evidence led to this verdict and why.
 
-Done when every listed claim has a verdict, and every verdict other than `not-checkable` and `not-enough-evidence` has at least one opened source in `evidence`.
+Done when every listed claim has a verdict, and every verdict other than `not-checkable` and `not-enough-evidence` has at least two opened, independent sources in `evidence` (different publishers; one of them primary when a primary source exists). With only one source, the honest verdict is `not-enough-evidence` or a lower `confidence`.
 
 ## JSON
 ```json
