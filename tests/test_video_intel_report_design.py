@@ -11,7 +11,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from video_intel.compare import render_compare
-from video_intel.presentation import CSS, LABELS, SCRIPT, VERDICTS
+from video_intel.presentation import CSS, LABELS, SCRIPT, VERDICTS, platform_name
 from video_intel.report import render_reports, write_report
 from video_intel.validation import ValidationError, validate_analysis, validate_compare
 
@@ -50,6 +50,29 @@ class Document(HTMLParser):
 
 
 class TestReportDesign(unittest.TestCase):
+    def test_platform_badge_display_names(self):
+        for platform, expected in (('youtube', 'YouTube'), ('instagram', 'Instagram'),
+                                   ('x', 'X'), ('tiktok', 'TikTok'), ('other', 'Other')):
+            with self.subTest(platform=platform):
+                data = analysis()
+                data['video']['platform'] = platform
+                html, _ = render_reports(data)
+                self.assertIn(f'<span class="chip">{expected}</span><h1>', html)
+        self.assertEqual(platform_name('vimeo'), 'Vimeo')
+        self.assertEqual(platform_name('other platform'), 'Other Platform')
+        self.assertEqual(platform_name('YOUTUBE'), 'YouTube')
+
+    def test_verdict_legend_is_only_in_header_and_rail_keeps_actions(self):
+        html, _ = render_reports(analysis())
+        header = html.split('<header class="report-header">', 1)[1].split('</header>', 1)[0]
+        rail = html.split('<aside class="rail">', 1)[1].split('</aside>', 1)[0]
+        self.assertEqual(len(Document(html).select('div', 'class', 'verdict-legend')), 1)
+        self.assertEqual(len(Document(header).select('div', 'class', 'verdict-legend')), 1)
+        self.assertFalse(Document(rail).select('div', 'class', 'verdict-legend'))
+        self.assertEqual(len(Document(rail).select('nav', 'class', 'toc')), 1)
+        self.assertEqual(len(Document(rail).select('button', 'data-copy-markdown')), 1)
+        self.assertEqual(len(Document(rail).select('button', 'data-print')), 1)
+
     def test_language_precedence_and_unsupported_fallback(self):
         for explicit, transcript_language, expected in (
             ('tr', 'en', 'tr'), ('en', 'tr', 'en'), (None, 'tr', 'tr'),
@@ -92,7 +115,7 @@ class TestReportDesign(unittest.TestCase):
             self.assertIn(f'--count:{count};', segment['style'])
             self.assertEqual(segment['aria-label'], f'{LABELS["en"][verdict]}: {count}')
             self.assertEqual(segment['aria-pressed'], 'false')
-            self.assertEqual(len(doc.select('button', 'data-filter-verdict', verdict)), 3)
+            self.assertEqual(len(doc.select('button', 'data-filter-verdict', verdict)), 2)
 
     def test_truth_meter_and_quiet_metadata(self):
         doc, _ = render_reports(analysis())
@@ -188,12 +211,22 @@ class TestReportDesign(unittest.TestCase):
         light, dark = re.findall(r':root\s*\{([^}]+)\}', CSS)[:2]
         for theme, block in (('light', light), ('dark', dark)):
             colors = dict(re.findall(r'--([\w-]+):(#\w+)', block))
-            for foreground in ('ink', 'muted', 'accent', *VERDICTS):
+            for foreground in ('ink', 'muted', 'accent'):
                 for background in ('bg', 'surface'):
                     values = sorted([luminance(colors[foreground]), luminance(colors[background])])
                     contrast = (values[1] + .05) / (values[0] + .05)
                     with self.subTest(theme=theme, foreground=foreground, background=background):
                         self.assertGreaterEqual(contrast, 4.5)
+            for verdict in VERDICTS:
+                segment_ink = '#111' if verdict in ('mostly-false', 'half-true', 'mostly-true') else colors['segment-ink']
+                pairs = [('segment', segment_ink, colors[verdict]),
+                         ('legend', colors['ink'], colors['bg'])]
+                text = colors.get(verdict + '-text', colors[verdict])
+                pairs.extend(('claim', text, colors[background]) for background in ('bg', 'surface'))
+                for usage, foreground, background in pairs:
+                    values = sorted([luminance(foreground), luminance(background)])
+                    with self.subTest(theme=theme, verdict=verdict, usage=usage):
+                        self.assertGreaterEqual((values[1] + .05) / (values[0] + .05), 4.5)
 
 
 class TestCompareDesign(unittest.TestCase):
@@ -217,6 +250,7 @@ class TestCompareDesign(unittest.TestCase):
                     sample['report_language'] = explicit
                 validate_compare(sample)
                 html, markdown = render_compare(sample, base)
+                self.assertEqual(len(Document(html).select('div', 'class', 'verdict-legend')), 1)
                 self.assertEqual(Document(html).select('html')[0]['lang'], expected)
                 for key in ('common_claims', 'contradictions', 'who_says_what', 'unique_points', 'overall', 'not-checked', 'copy', 'print'):
                     self.assertIn(LABELS[expected][key], html)

@@ -16,10 +16,10 @@ from youtube_transcript.urls import extract_video_id
 
 from video_intel.validation import read_json, safe_url, validate_analysis
 
-from video_intel.presentation import CSS, SCRIPT, VERDICTS, label, report_language
+from video_intel.presentation import CSS, SCRIPT, VERDICTS, label, platform_name, report_language
 
 
-def make_document(title, body, markdown, language="en", counts=None):
+def make_document(title, body, markdown, language="en"):
     """Shared offline shell; untrusted text never enters the trusted inline script."""
     headings = []
 
@@ -46,8 +46,6 @@ def make_document(title, body, markdown, language="en", counts=None):
     header, rest = body.split('</header>', 1)
     header = header.replace('<header>', '<header class="report-header">', 1)
     header += actions(True) + status + '</header>'
-    rail_legend = (f'<div class="rail-legend"><h2>{esc(label("verdict_summary", language))}</h2>'
-                   + verdict_legend(counts, language) + '</div>') if counts else ''
     digest = base64.b64encode(hashlib.sha256(SCRIPT.encode()).digest()).decode()
     csp = ("default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
            f"script-src 'sha256-{digest}'; connect-src 'none'; base-uri 'none'; form-action 'none'")
@@ -57,7 +55,7 @@ def make_document(title, body, markdown, language="en", counts=None):
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<meta http-equiv="Content-Security-Policy" content="{esc(csp)}">'
             f'<title>{esc(title)} — {esc(label("report", language))}</title><style>{CSS}</style></head><body>'
-            '<div class="layout">' + header + '<aside class="rail">' + toc + rail_legend + actions() + '</aside>'
+            '<div class="layout">' + header + '<aside class="rail">' + toc + actions() + '</aside>'
             + '<main>' + rest + '</main></div>'
             + f'<textarea id="markdown-source" aria-label="{esc(label("markdown", language))}" hidden>{esc(markdown)}</textarea>'
             + f'<script>{SCRIPT}</script></body></html>\n')
@@ -220,7 +218,8 @@ def render_reports(analysis: dict, transcript=None, frames=None, *, frame_images
         metadata_line.append(esc(date))
     if video.get("duration") is not None:
         metadata_line.append(f'<span class="time">{esc(format_timestamp(video["duration"]))}</span>')
-    h = [f'<header><span class="chip">{esc(video.get("platform", tr("report")))}</span><h1>{esc(title)}</h1>',
+    platform = platform_name(video["platform"]) if video.get("platform") else tr("report")
+    h = [f'<header><span class="chip">{esc(platform)}</span><h1>{esc(title)}</h1>',
          '<div class="meta">' + '<span aria-hidden="true">·</span>'.join(f'<span>{v}</span>' for v in metadata_line) + '</div>',
          f'<div class="source-row"><span class="chip">{esc(tr(source))}</span>{link(tr("watch"), url)}</div>']
     m = [f"# {md(title)}", "", f"- {tr('source')}: {link(tr('watch'), url, True)}",
@@ -291,7 +290,8 @@ def render_reports(analysis: dict, transcript=None, frames=None, *, frame_images
             for claim in lens:
                 verdict = claim["verdict"]
                 details = f"{tr(claim['kind'])} · {tr('confidence')}: {tr(claim['confidence'])}"
-                h.append(f'<article data-claim data-verdict="{verdict}" style="--verdict:var(--{verdict})">'
+                h.append(f'<article data-claim data-verdict="{verdict}" style="--verdict:var(--{verdict});'
+                         f'--verdict-text:var(--{verdict}-text,var(--{verdict}))">'
                          f'<div class="claim-verdict"><span>{esc(tr(verdict))}</span>{truth_meter(verdict, claim["rating"], language)}</div>'
                          f'<h3>{text(single_line(claim["claim_reviewed"]))}</h3>'
                          f'<p class="claim-meta">{time_link(claim["t"], url)} · {esc(details)}</p>'
@@ -337,7 +337,7 @@ def render_reports(analysis: dict, transcript=None, frames=None, *, frame_images
             m.extend([f"{time_link(segment['start'], url, True)} {md(segment['text'])}", ""])
         h.append("</details></section>")
     markdown = "\n".join(m) + "\n"
-    return make_document(title, "\n".join(h), markdown, language, counts), markdown
+    return make_document(title, "\n".join(h), markdown, language), markdown
 
 
 def write_report(run_dir: Path) -> tuple[Path, Path]:

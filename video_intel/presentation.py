@@ -126,15 +126,25 @@ def report_language(data, transcript=None):
             else fallback if isinstance(fallback, str) and fallback in LABELS else "en")
 
 
+def platform_name(platform):
+    return {"youtube": "YouTube", "instagram": "Instagram", "x": "X", "tiktok": "TikTok"}.get(
+        platform.casefold(), platform.title())
+
+
 CSS = """
 :root { color-scheme:light dark; --bg:#f5f6f8; --surface:#fff; --ink:#19232d;
- --muted:#526170; --line:#d4dbe2; --accent:#1558a6; --false:#b53226;
- --mostly-false:#a34c12; --half-true:#826000; --mostly-true:#52701b; --true:#197044;
- --not-enough-evidence:#52677c; --not-checkable:#646970; --not-checked:#646970; }
+ --muted:#526170; --line:#d4dbe2; --accent:#1558a6; --false:#c62828;
+ --mostly-false:#e65100; --half-true:#f9a825; --mostly-true:#7cb342; --true:#2e7d32;
+ --not-enough-evidence:#546e7a; --not-checkable:#757575; --not-checked:#757575;
+ --mostly-false-text:#b33e00; --half-true-text:#795500; --mostly-true-text:#3f6b18;
+ --not-checkable-text:#707070; --not-checked-text:#707070; --segment-ink:#fff; }
 @media(prefers-color-scheme:dark) { :root { --bg:#14191e; --surface:#1c232a; --ink:#edf1f5;
  --muted:#b1beca; --line:#3e4b58; --accent:#91c3ff; --false:#ff9588;
  --mostly-false:#ffb076; --half-true:#e8ca6a; --mostly-true:#b9d77b; --true:#7fd5a5;
- --not-enough-evidence:#adbed0; --not-checkable:#b6bbc2; --not-checked:#b6bbc2; } }
+ --not-enough-evidence:#adbed0; --not-checkable:#b6bbc2; --not-checked:#b6bbc2;
+ --mostly-false-text:var(--mostly-false); --half-true-text:var(--half-true);
+ --mostly-true-text:var(--mostly-true); --not-checkable-text:var(--not-checkable);
+ --not-checked-text:var(--not-checked); --segment-ink:#14191e; } }
 * { box-sizing:border-box; } body { margin:0; background:var(--bg); color:var(--ink);
  font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
 .layout { max-width:1080px; margin:auto; padding:36px 28px 80px; display:grid;
@@ -171,19 +181,19 @@ button[aria-pressed=true] { outline:2px solid var(--accent); outline-offset:2px;
 .verdict-scroll { overflow-x:auto; padding:4px; margin-inline:-4px; }
 .verdict-bar { display:flex; gap:3px; width:100%; min-height:44px; }
 .verdict-segment { flex:var(--count) 1 0%; min-width:44px; padding:0; border:0; border-radius:0;
- background:var(--verdict); color:var(--bg); font-weight:700; }
+ background:var(--verdict); color:var(--segment-ink); font-weight:700; }
+.verdict-segment:is([data-filter-verdict=mostly-false],[data-filter-verdict=half-true],
+ [data-filter-verdict=mostly-true]) { color:#111; }
 .verdict-legend { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:10px; }
 .verdict-legend button { background:transparent; border:0; display:flex; gap:8px; align-items:center;
  padding:6px 2px; font-size:14px; text-align:left; }
 .swatch { width:10px; height:10px; border-radius:50%; background:var(--verdict); flex:none; }
-.rail-legend { margin-top:28px; } .rail-legend .verdict-legend { flex-direction:column; }
-.rail-legend .verdict-legend button { width:100%; }
 .controls { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0; align-items:end; }
 .controls label { display:grid; gap:6px; flex:1 1 200px; font-size:14px; min-width:0; }
 .controls input,.controls select { width:100%; } #claim-count { display:block; width:100%; color:var(--muted); font-size:14px; }
 article { border:1px solid var(--line); border-radius:6px; background:var(--surface); padding:22px; margin:16px 0; }
 [data-claim] { border-left:4px solid var(--verdict); }
-.claim-verdict { color:var(--verdict); display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:14px; font-weight:700; }
+.claim-verdict { color:var(--verdict-text); display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:14px; font-weight:700; }
 .truth-meter { display:inline-flex; gap:4px; } .truth-meter i { display:block; width:9px; height:9px;
  border:1.5px solid currentColor; border-radius:50%; } .truth-meter .filled { background:currentColor; }
 .claim-meta { color:var(--muted); font-size:14px; margin:0; }
@@ -207,7 +217,7 @@ code { font-size:.9em; } [hidden] { display:none!important; }
  .layout { display:flex; flex-direction:column; max-width:776px; padding:28px 28px 60px; }
  .report-header { order:0; } .rail { order:1; position:sticky; top:0; z-index:2; padding:0;
    margin:0 -28px; max-height:none; background:var(--bg); overflow:visible; }
- main { order:2; } .toc h2,.rail-legend,.rail .actions { display:none; }
+ main { order:2; } .toc h2,.rail .actions { display:none; }
  .toc ul { display:flex; overflow-x:auto; gap:4px; padding:8px 28px; }
  .toc li { flex:none; } .toc a { white-space:nowrap; border:1px solid var(--line); border-radius:6px; padding:8px 12px; }
  .toc a[aria-current=true] { border-color:var(--accent); } .mobile-actions { display:flex; }
@@ -272,16 +282,41 @@ SCRIPT = """
     });
   });
   const tocLinks = Array.from(document.querySelectorAll('.toc a'));
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(entries => {
-      const current = entries.filter(entry => entry.isIntersecting).sort((a,b) =>
-        a.boundingClientRect.top - b.boundingClientRect.top)[0];
-      if (current) tocLinks.forEach(a => a.setAttribute('aria-current', String(a.hash === '#' + current.target.id)));
-    }, {rootMargin:'-15% 0px -55% 0px'});
-    tocLinks.forEach(a => { const section = document.getElementById(a.hash.slice(1)); if (section) observer.observe(section); });
+  const tocSections = tocLinks.map(link => document.getElementById(link.hash.slice(1)));
+  let activeLink;
+  function updateActiveSection() {
+    let current = 0;
+    if (window.scrollY > 0) tocSections.forEach((section, index) => {
+      if (section && section.getBoundingClientRect().top <= window.innerHeight * .3) current = index;
+    });
+    const link = tocLinks[current];
+    if (!link) return;
+    if (link !== activeLink) {
+      tocLinks.forEach(item => item.setAttribute('aria-current', String(item === link)));
+      activeLink = link;
+    }
+    if (window.matchMedia('(max-width:1023px)').matches) {
+      const row = link.closest('ul');
+      const chip = link.getBoundingClientRect();
+      const bounds = row.getBoundingClientRect();
+      if (chip.left < bounds.left || chip.right > bounds.right) {
+        row.scrollBy({left: chip.left - bounds.left - (bounds.width - chip.width) / 2, behavior:'auto'});
+      }
+    }
   }
-  tocLinks.forEach(a => a.addEventListener('click', () => tocLinks.forEach(link =>
-    link.setAttribute('aria-current', String(link === a)))));
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(updateActiveSection);
+    tocSections.forEach(section => { if (section) observer.observe(section); });
+  }
+  let tocFramePending = false;
+  function scheduleTocUpdate() {
+    if (tocFramePending) return;
+    tocFramePending = true;
+    requestAnimationFrame(() => { tocFramePending = false; updateActiveSection(); });
+  }
+  addEventListener('scroll', scheduleTocUpdate, {passive:true});
+  addEventListener('resize', scheduleTocUpdate);
+  updateActiveSection();
   document.querySelectorAll('[data-copy-markdown]').forEach(button => button.addEventListener('click', async () => {
     const active = document.activeElement;
     const text = document.getElementById('markdown-source');

@@ -72,7 +72,8 @@ def render_compare(data, base_dir):
         for item in data[group]:
             title = item.get("claim", item.get("topic", item.get("point", "")))
             verdict = item.get("verdict")
-            attributes = (f' data-claim data-verdict="{verdict}" style="--verdict:var(--{verdict})"'
+            attributes = (f' data-claim data-verdict="{verdict}" style="--verdict:var(--{verdict});'
+                          f'--verdict-text:var(--{verdict}-text,var(--{verdict}))"'
                           if group == "common_claims" else "")
             h.append(f"<article{attributes}>")
             if verdict:
@@ -114,7 +115,7 @@ def render_compare(data, base_dir):
     h.append(f"<section><h2>{esc(tr('overall'))}</h2><p>{lens_text(data['verdict_overall'])}</p></section>")
     m.extend(["", f"## {tr('overall')}", "", md(data["verdict_overall"]), ""])
     markdown = "\n".join(m)
-    return make_document(data["topic"], "\n".join(h), markdown, language, counts), markdown
+    return make_document(data["topic"], "\n".join(h), markdown, language), markdown
 
 
 def write_compare(path):
