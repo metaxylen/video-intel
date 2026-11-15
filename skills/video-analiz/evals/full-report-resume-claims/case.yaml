@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: full-report-resume-claims
+expected_outcome: |
+  video-intel fetch runs, analysis.json contains summary, moments, claims, mentions and actions lenses, claims are researched on the web with opened sources, video-intel report exits 0 and the report.html path is delivered with a short Turkish summary.

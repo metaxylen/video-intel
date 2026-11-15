@@ -3,11 +3,11 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "yt-captions-md"
-version = "0.1.0"
-description = "CLI to save YouTube captions as Markdown files (no API key)"
+name = "video-intel"
+version = "0.2.0"
+description = "Multi-platform video transcripts (captions or local mlx-whisper), frames and fact-checked HTML reports; ships the legacy yt-captions-md CLI"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
     "youtube-transcript-api>=0.6.2",

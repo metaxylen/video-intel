@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: instagram-reel-transcript
+expected_outcome: |
+  The reel is fetched with video-intel (ASR, no captions), the answer in Turkish says the creator talks about scalp care on a hair journey and promotes Dyson's amino leave-in scalp treatment, and judges it as sponsored/promotional content with evidence from the transcript or description.
