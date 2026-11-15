@@ -16,6 +16,7 @@ from youtube_transcript.urls import extract_video_id
 
 from video_intel.captions import parse_srv3, parse_vtt
 from video_intel.errors import VideoIntelError, map_error, with_retry
+from video_intel.window import clip_transcript, focus_window
 
 ASR_MODEL = "mlx-community/whisper-large-v3-turbo"
 
@@ -152,7 +153,8 @@ def create_run_dir(root: Path, platform: str, title: str, video_id: str, today=N
             suffix += 1
 
 
-def asr_transcript(url: str, run_dir: Path, language="auto", cookies=None, keep_audio=False) -> dict:
+def asr_transcript(url: str, run_dir: Path, language="auto", cookies=None, keep_audio=False, window=None,
+                   allow_empty=False) -> dict:
     try:
         import mlx_whisper
     except ImportError as exc:
@@ -171,9 +173,14 @@ def asr_transcript(url: str, run_dir: Path, language="auto", cookies=None, keep_
                 return Path(ydl.prepare_filename(info))
 
         source = with_retry(download)
+        slice_args = []
+        if window:
+            slice_args = ["-ss", str(window["start"])]
+            if window["end"] is not None:
+                slice_args += ["-to", str(window["end"])]
         try:
             subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(source),
-                            "-vn", "-ar", "16000", "-ac", "1", str(audio)],
+                            *slice_args, "-vn", "-ar", "16000", "-ac", "1", str(audio)],
                            check=True, capture_output=True, timeout=300)
         except FileNotFoundError as exc:
             raise VideoIntelError("NO_TRANSCRIPT", "ASR requires ffmpeg on PATH") from exc
@@ -184,9 +191,10 @@ def asr_transcript(url: str, run_dir: Path, language="auto", cookies=None, keep_
                                             language=None if language == "auto" else language)
         except Exception as exc:
             raise VideoIntelError("NO_TRANSCRIPT", f"Local ASR failed: {exc}") from exc
-        segments = [{"start": float(s["start"]), "end": float(s["end"]), "text": str(s["text"])}
+        offset = window["start"] if window else 0
+        segments = [{"start": float(s["start"]) + offset, "end": float(s["end"]) + offset, "text": str(s["text"])}
                     for s in result.get("segments", []) if str(s.get("text", "")).strip()]
-        if not segments:
+        if not segments and not allow_empty:
             raise VideoIntelError("NO_TRANSCRIPT", "ASR returned no speech segments")
         return {"source": "asr", "model": ASR_MODEL,
                 "language": result.get("language") or language, "segments": segments}
@@ -200,7 +208,8 @@ def asr_transcript(url: str, run_dir: Path, language="auto", cookies=None, keep_
 
 
 def fetch_video(url: str, root: Path, languages=None, asr="auto", asr_lang="auto",
-                cookies=None, keep_audio=False) -> Path:
+                cookies=None, keep_audio=False, start=None, end=None, frames=False) -> Path:
+    window = focus_window(start, end)
     url = normalize_url(url)
     platform = detect_platform(url)
     languages = languages or []
@@ -227,7 +236,10 @@ def fetch_video(url: str, root: Path, languages=None, asr="auto", asr_lang="auto
 
     run_dir = create_run_dir(root, platform, title, video_id)
     if transcript is None:
-        transcript = asr_transcript(url, run_dir, asr_lang, cookies, keep_audio)
+        transcript = asr_transcript(url, run_dir, asr_lang, cookies, keep_audio,
+                                    **({"window": window} if window else {}),
+                                    **({"allow_empty": True} if frames else {}))
+    transcript = clip_transcript(transcript, window)
     meta = {key: info.get(key) for key in (
         "upload_date", "duration", "description", "view_count", "like_count",
     )}
@@ -244,4 +256,8 @@ def fetch_video(url: str, root: Path, languages=None, asr="auto", asr_lang="auto
     if transcript["source"] == "asr":
         document += f"\nASR model: {ASR_MODEL}. Names and numbers may contain recognition errors.\n"
     (run_dir / "transcript.md").write_text(document, encoding="utf-8")
+    if frames:
+        from video_intel.frames import extract_frames
+
+        extract_frames(run_dir, cookies=cookies)
     return run_dir

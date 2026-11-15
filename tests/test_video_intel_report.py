@@ -135,7 +135,7 @@ class _HTMLAudit(HTMLParser):
         attributes = dict(attrs)
         if tag == "a":
             self.links.append(attributes.get("href", ""))
-        if tag in ("script", "iframe", "img", "link", "video", "audio", "object"):
+        if tag in ("iframe", "img", "link", "video", "audio", "object") or (tag == "script" and attributes.get("src")):
             self.external_resources.append((tag, attributes))
 
 
@@ -182,7 +182,7 @@ class TestRenderer(unittest.TestCase):
         audit = _HTMLAudit()
         audit.feed(document)
         self.assertEqual(audit.external_resources, [])
-        self.assertNotIn("script", audit.tags)
+        self.assertEqual(audit.tags.count("script"), 1)  # Only the trusted inline report controls.
 
     def test_offline_responsive_theme(self):
         document, _ = render_reports(analysis_fixture())

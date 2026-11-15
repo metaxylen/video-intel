@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import html
+import base64
+import hashlib
 import math
 import re
+from collections import Counter
 from pathlib import Path
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
@@ -46,7 +49,109 @@ summary { cursor:pointer; padding:12px 0; font-weight:600; }
 .transcript p { padding:8px 0; } .evidence { padding-top:12px; border-top:1px solid var(--line); }
 @media(max-width:480px) { main { padding:24px 16px 48px; } article { padding:16px; } }
 @media print { body { background:white; color:black; } main { max-width:none; } article { break-inside:avoid; } }
+/* Reflow at phone widths, including long URLs and literal tutorial commands. */
+main,section,article,details { min-width:0; }
+a { display:inline-block; min-height:44px; min-width:44px; padding-block:8px; vertical-align:middle; }
+button,input,select { font:inherit; min-height:44px; min-width:44px; max-width:100%;
+  border:1px solid var(--line); border-radius:6px; padding:8px 12px;
+  background:var(--surface); color:var(--text); }
+button { cursor:pointer; } button:focus-visible,input:focus-visible,select:focus-visible {
+  outline:3px solid var(--link); outline-offset:3px; }
+.controls,.verdict-bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:16px 0; }
+.controls label { display:grid; gap:4px; flex:1 1 200px; min-width:0; }
+.toc ul { display:flex; flex-wrap:wrap; gap:4px 20px; list-style:none; padding:0; }
+.toc li { margin:0; } .frame-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:12px; }
+figure { margin:0; min-width:0; } img { max-width:100%; width:100%; height:auto; border-radius:6px; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--neutral-bg); padding:12px; border-radius:6px; }
+code { font-size:.9em; } [hidden] { display:none!important; }
+@media print { .controls,.toc,.verdict-bar,button { display:none!important; }
+  [data-claim][hidden] { display:block!important; } a { min-height:0; padding:0; }
+  .frame-strip { grid-template-columns:repeat(3,1fr); } header { border-color:#999; }
+  :root { color-scheme:light; --surface:#fff; --text:#000; --muted:#333; --link:#000;
+    --neutral-bg:#eee; --good-bg:#eee; --bad-bg:#eee; --warn-bg:#eee;
+    --good:#000; --bad:#000; --warn:#000; }
+}
 """
+
+SCRIPT = """
+(() => {
+  const search = document.getElementById('claim-search');
+  const verdict = document.getElementById('claim-verdict');
+  const cards = Array.from(document.querySelectorAll('[data-claim]'));
+  function filterClaims() {
+    const query = search.value.toLocaleLowerCase();
+    let visible = 0;
+    cards.forEach(card => {
+      card.hidden = !(card.textContent.toLocaleLowerCase().includes(query) &&
+        (!verdict.value || card.dataset.verdict === verdict.value));
+      if (!card.hidden) visible++;
+    });
+    document.getElementById('claim-count').textContent = visible + ' of ' + cards.length + ' claims';
+  }
+  if (search && verdict) {
+    search.addEventListener('input', filterClaims);
+    verdict.addEventListener('change', filterClaims);
+    filterClaims();
+  }
+  document.getElementById('copy-markdown').addEventListener('click', async () => {
+    const text = document.getElementById('markdown-source');
+    const status = document.getElementById('copy-status');
+    try {
+      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(text.value);
+      else {
+        text.hidden = false;
+        text.select();
+        const copied = document.execCommand('copy');
+        text.hidden = true;
+        if (!copied) throw new Error('copy unavailable');
+      }
+      status.textContent = 'Markdown copied';
+    } catch (_) {
+      text.hidden = true;
+      status.textContent = 'Copy unavailable. Open the adjacent Markdown file.';
+    }
+  });
+})();
+"""
+
+
+def make_document(title, body, markdown):
+    """Shared offline shell; the CSP permits only this exact inline script."""
+    headings = []
+
+    def anchor(match):
+        index = len(headings)
+        headings.append((f"section-{index}", match.group(1)))
+        return f'<h2 id="section-{index}">{match.group(1)}</h2>'
+
+    body = re.sub(r"<h2>(.*?)</h2>", anchor, body, flags=re.S)
+    toc = ('<nav class="toc" aria-label="Table of contents"><h2>Contents</h2><ul>'
+           + "".join(f'<li><a href="#{key}">{label}</a></li>' for key, label in headings) + "</ul></nav>")
+    controls = ('<div class="controls"><button id="copy-markdown" type="button">Copy as Markdown</button>'
+                '<span id="copy-status" role="status" aria-live="polite"></span></div>')
+    digest = base64.b64encode(hashlib.sha256(SCRIPT.encode()).digest()).decode()
+    csp = ("default-src 'none'; style-src 'unsafe-inline'; img-src 'self' file:; "
+           f"script-src 'sha256-{digest}'; connect-src 'none'; base-uri 'none'; form-action 'none'")
+    return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            f'<meta http-equiv="Content-Security-Policy" content="{esc(csp)}">'
+            f'<title>{esc(title)} — Video analysis</title><style>{CSS}</style></head><body><main>'
+            + controls + toc + body + f'<textarea id="markdown-source" aria-label="Report Markdown" hidden>{esc(markdown)}</textarea>'
+            + f'</main><script>{SCRIPT}</script></body></html>\n')
+
+
+def verdict_bar(counts):
+    return ('<aside aria-label="Verdict summary" class="verdict-bar">' + "".join(
+        f'<span class="chip">{esc(verdict.replace("-", " "))}: {count}</span>'
+        for verdict, count in counts.items()) + "</aside>") if counts else ""
+
+
+def claim_controls(counts):
+    return ('<div class="controls"><label>Search claims<input id="claim-search" type="search" '
+            'placeholder="Search text, evidence or rationale"></label><label>Verdict'
+            '<select id="claim-verdict"><option value="">All verdicts</option>' + "".join(
+                f'<option value="{esc(verdict)}">{esc(verdict.replace("-", " "))}</option>' for verdict in counts)
+            + '</select></label><span id="claim-count" role="status" aria-live="polite"></span></div>')
 
 
 def esc(value) -> str:
@@ -128,7 +233,7 @@ def _transcript_segments(transcript):
     return transcript["segments"]
 
 
-def render_reports(analysis: dict, transcript=None) -> tuple[str, str]:
+def render_reports(analysis: dict, transcript=None, frames=None) -> tuple[str, str]:
     validate_analysis(analysis)
     segments = _transcript_segments(transcript)
     video = analysis["video"]
@@ -150,6 +255,26 @@ def render_reports(analysis: dict, transcript=None) -> tuple[str, str]:
     if metadata:
         h.append(f"<details><summary>Video details</summary>{generic(metadata)}</details>")
         m.extend(["", "## Video details", "", generic(metadata, True)])
+    if frames is not None:
+        if not isinstance(frames, list):
+            raise ValueError("frames.json: expected an array")
+        h.append('<section><h2>Frames</h2><div class="frame-strip">')
+        m.extend(["", "## Frames", ""])
+        for frame in frames:
+            if (not isinstance(frame, dict) or type(frame.get("t")) not in (int, float)
+                    or not math.isfinite(frame["t"]) or frame["t"] < 0
+                    or not isinstance(frame.get("path"), str)
+                    or not re.fullmatch(r"frames/\d{4,}\.\d{2}\.jpg", frame["path"])):
+                raise ValueError("frames.json: expected nonnegative t and a relative timestamp JPEG path")
+            label = format_timestamp(frame["t"])
+            h.append(f'<figure><img src="{esc(frame["path"])}" alt="Frame at {esc(label)}" '
+                     f'loading="lazy" width="512"><figcaption>{time_link(frame["t"], url)}</figcaption></figure>')
+            m.extend([f"![Frame at {md(label)}]({frame['path']}) {time_link(frame['t'], url, True)}", ""])
+        h.append("</div></section>")
+    counts = Counter(claim["verdict"] for claim in analysis["lenses"].get("claims", []))
+    if counts:
+        h.append(verdict_bar(counts))
+        m.extend(["", "## Verdict summary", "", *[f"- {verdict.replace('-', ' ')}: {count}" for verdict, count in counts.items()]])
     for name, lens in analysis["lenses"].items():
         if name == "summary":
             h.append(f'<section><h2>Summary</h2><p>{esc(lens["tldr"])}</p><ul>')
@@ -171,6 +296,7 @@ def render_reports(analysis: dict, transcript=None) -> tuple[str, str]:
             h.append("</section>")
         elif name == "claims":
             h.append("<section><h2>Claims</h2>")
+            h.append(claim_controls(counts))
             m.extend(["", "## Claims", ""])
             for claim in lens:
                 verdict = claim["verdict"]
@@ -178,7 +304,7 @@ def render_reports(analysis: dict, transcript=None) -> tuple[str, str]:
                           else "warn" if verdict in ("half-true", "not-enough-evidence") else "")
                 label = verdict.replace("-", " ")
                 details = f"{claim['kind']} · Confidence: {claim['confidence']} · Rating: {claim['rating'] if claim['rating'] is not None else '—'}/5"
-                h.append(f'<article><span class="chip {colour}">{esc(label)}</span>'
+                h.append(f'<article data-claim data-verdict="{esc(verdict)}"><span class="chip {colour}">{esc(label)}</span>'
                          f'<h3>{esc(claim["claim_reviewed"])}</h3>'
                          f'<p class="muted">{esc(claim["id"])} · {time_link(claim["t"], url)} · {esc(details)}</p>'
                          f'<blockquote>{esc(claim["quote"])}</blockquote><p>{esc(claim["rationale"])}</p>')
@@ -193,6 +319,12 @@ def render_reports(analysis: dict, transcript=None) -> tuple[str, str]:
                               f"  {md(evidence['snippet'])}", ""])
                 h.append("</article>")
             h.append("</section>")
+        elif name in ("steps", "mentions", "hook", "sources", "tone", "actions"):
+            from video_intel.lenses import TITLES, render_lens
+
+            lens_html, lens_md = render_lens(name, lens, url)
+            h.append(f'<section><h2>{TITLES[name]}</h2>{lens_html}</section>')
+            m.extend(["", f"## {TITLES[name]}", "", lens_md])
         else:
             h.append(f"<section><h2>{esc(name)}</h2>{generic(lens)}</section>")
             m.extend(["", f"## {md(name)}", "", generic(lens, True)])
@@ -209,12 +341,8 @@ def render_reports(analysis: dict, transcript=None) -> tuple[str, str]:
             h.append(f'<p>{time_link(segment["start"], url)} {esc(segment["text"])}</p>')
             m.extend([f"{time_link(segment['start'], url, True)} {md(segment['text'])}", ""])
         h.append("</section>")
-    document = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-                '<meta name="viewport" content="width=device-width, initial-scale=1">'
-                '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">'
-                f'<title>{esc(title)} — Video analysis</title><style>{CSS}</style></head><body><main>'
-                + "\n".join(h) + "</main></body></html>\n")
-    return document, "\n".join(m) + "\n"
+    markdown = "\n".join(m) + "\n"
+    return make_document(title, "\n".join(h), markdown), markdown
 
 
 def write_report(run_dir: Path) -> tuple[Path, Path]:
@@ -231,7 +359,9 @@ def write_report(run_dir: Path) -> tuple[Path, Path]:
             analysis["video"] = dict(metadata, **analysis["video"])
     transcript_path = run_dir / "transcript.json"
     transcript = read_json(transcript_path) if transcript_path.is_file() else None
-    document, markdown = render_reports(analysis, transcript)
+    frames_path = run_dir / "frames.json"
+    frames = read_json(frames_path) if frames_path.is_file() else None
+    document, markdown = render_reports(analysis, transcript, frames)
     html_path, md_path = run_dir / "report.html", run_dir / "report.md"
     html_path.write_text(document, encoding="utf-8")
     md_path.write_text(markdown, encoding="utf-8")

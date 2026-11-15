@@ -8,7 +8,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from youtube_transcript.files import resolve_output_path, write_markdown
+from youtube_transcript.files import load_urls_from_file, resolve_output_path, write_markdown
 from youtube_transcript.markdown import build_markdown_document
 from youtube_transcript.metadata import fetch_metadata
 from youtube_transcript.transcript import TranscriptError, fetch_transcript_with_retry
@@ -31,16 +31,6 @@ def parse_lang_list(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [part.strip() for part in raw.split(",") if part.strip()]
-
-
-def load_urls_from_file(path: Path) -> list[str]:
-    urls: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        urls.append(stripped)
-    return urls
 
 
 def process_url(

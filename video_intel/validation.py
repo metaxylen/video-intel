@@ -33,8 +33,8 @@ def read_json(path):
     return json.loads(path.read_text(encoding="utf-8"), parse_constant=reject_constant)
 
 
-def validate_analysis(analysis: dict) -> None:
-    schema = json.loads(files("video_intel").joinpath("schema/analysis.schema.json").read_text(encoding="utf-8"))
+def validate_schema(data, name):
+    schema = json.loads(files("video_intel").joinpath(f"schema/{name}.schema.json").read_text(encoding="utf-8"))
     errors = []
 
     def matches(value, kind):
@@ -42,6 +42,7 @@ def validate_analysis(analysis: dict) -> None:
             "object": isinstance(value, dict), "array": isinstance(value, list),
             "string": isinstance(value, str), "null": value is None,
             "integer": type(value) is int,
+            "boolean": type(value) is bool,
             "number": type(value) is int or (type(value) is float and math.isfinite(value)),
         }.get(kind, False)
 
@@ -86,9 +87,51 @@ def validate_analysis(analysis: dict) -> None:
             for key, child in value.items():
                 check(child, rule.get("properties", {}).get(key, {}), f"{path}.{key}")
         if isinstance(value, list):
+            if len(value) < rule.get("minItems", 0):
+                errors.append(f"{path}: at least {rule['minItems']} items required")
             for index, child in enumerate(value):
                 check(child, rule.get("items", {}), f"{path}[{index}]")
 
-    check(analysis, schema, "analysis")
+    check(data, schema, name)
+    if errors:
+        raise ValidationError(errors)
+
+
+def validate_analysis(analysis: dict) -> None:
+    validate_schema(analysis, "analysis")
+    actions = analysis["lenses"].get("actions", [])
+    ids = [item["id"] for item in actions]
+    errors = []
+    if len(ids) != len(set(ids)):
+        errors.append("analysis.lenses.actions: duplicate ids")
+    dependencies = {item["id"]: item["depends_on"] for item in actions}
+    for item in actions:
+        seen = {item["id"]}
+        parent = item["depends_on"]
+        while parent is not None:
+            if parent not in dependencies or parent in seen:
+                errors.append(f"analysis.lenses.actions.{item['id']}: invalid or cyclic depends_on")
+                break
+            seen.add(parent)
+            parent = dependencies[parent]
+    if errors:
+        raise ValidationError(errors)
+
+
+def validate_compare(data):
+    validate_schema(data, "compare")
+    ids = [video["id"] for video in data["videos"]]
+    errors = []
+    if len(ids) != len(set(ids)):
+        errors.append("compare.videos: duplicate ids")
+    for group, key in (("common_claims", "videos"), ("contradictions", "positions"),
+                       ("who_says_what", "stances"), ("unique_points", None)):
+        for item in data[group]:
+            refs = item[key] if key else [item]
+            for ref in refs:
+                if ref["id"] not in ids:
+                    errors.append(f"compare.{group}: unknown video id {ref['id']}")
+            if key == "stances" and sorted(ref["id"] for ref in refs) != sorted(ids):
+                errors.append("compare.who_says_what: each video must have exactly one stance")
     if errors:
         raise ValidationError(errors)

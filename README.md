@@ -267,3 +267,72 @@ python3 -m pytest -q
 ## Note
 
 This tool only uses publicly available YouTube caption data. You are responsible for complying with copyright and YouTube’s terms of use.
+
+### Expansion (v1.1)
+
+```bash
+# Batch input: one URL per line; blank lines and # comments ignored.
+video-intel fetch --file urls.txt --lang tr,en
+
+# Focus window (SS, MM:SS, HH:MM:SS; decimal seconds also accepted).
+video-intel fetch URL --start 01:10 --end 02:30 --frames
+
+# Download video only when frames are requested.
+video-intel frames ./video-reports/RUN --max-frames 24 --every 30
+video-intel frames ./video-reports/RUN --keep-video
+
+# Render an agent-authored comparison (schema_version: 1).
+video-intel report --compare ./video-reports/COMPARISON/compare.json
+
+# Offline setup check, with nonzero exit status if anything is missing.
+video-intel doctor
+video-intel doctor --json
+```
+
+Frames require ffmpeg and yt-dlp. The downloader selects the lowest-quality video
+stream with height at least 360p; a source offering no such format fails clearly.
+The extractor selects the first frame, scene changes (`scene > 0.3`), and an
+interval fallback (default: 30 seconds since the previous selected frame), capped
+at 24 frames overall. JPEGs are 512 pixels wide, named by original source time
+(e.g. `frames/0012.34.jpg`), and indexed in `frames.json` as `[{"t":12.34,
+"path":"frames/0012.34.jpg"}]`. Reports show a lazy-loaded frame gallery using
+relative paths. Keep the report and `frames/` together when sharing it. Temporary
+video files are removed even on extraction failure; `--keep-video` retains a
+successful download in a `.video-*` subdirectory of the run.
+
+A focus window has an inclusive start and exclusive end. Captions overlapping
+its boundaries are clipped by time; their text stays intact. ASR transcribes only
+the ffmpeg audio slice. Transcript and frame timestamps retain their positions
+in the original video, so source links remain accurate. The window is recorded
+as `"window": {"start": 70, "end": 150}` in `transcript.json`; an omitted end is
+`null`. A later `frames RUN` command reuses that window.
+
+The optional `steps`, `mentions`, `hook`, `sources`, `tone`, and `actions` lenses
+have dedicated report sections and schema validation. Unknown lenses still use
+the generic renderer. Reports include a table of contents, verdict counts,
+client-side claim search and verdict filters, a Copy as Markdown button, and a
+print layout. All CSS and JavaScript are inline; rendering and viewing require
+no external resources. If browser clipboard access is blocked, open the adjacent
+`report.md` or `compare.md` file.
+
+The bundled [comparison schema](video_intel/schema/compare.schema.json) defines
+`topic`, `videos`, `common_claims`, `contradictions`, `who_says_what`,
+`unique_points`, and `verdict_overall`. Each video has a unique `id`, `run_dir`,
+`title`, and `creator`. Use absolute run directories, or paths relative to
+`compare.json`. Each run needs `meta.json` with `webpage_url`; render its
+`report.html` before sharing the comparison. Video IDs link to local run reports;
+timestamps link to the original source. The command writes `compare.html` and
+`compare.md` beside the input JSON and validates it before writing either file.
+
+`doctor` never installs dependencies or downloads models. It checks the yt-dlp
+version/import, ffmpeg, the mlx-whisper import, cached config/weights under
+`~/.cache/huggingface/hub/models--mlx-community--whisper-large-v3-turbo`, and write
+access to `VIDEO_INTEL_OUT` (default: `~/video-reports`). JSON output has
+`ok`, `checks` (`name`, `ok`, `detail`, `fix`), and `missing`. It exits 0 only when
+all checks pass, including optional ASR prerequisites.
+
+Expansion tests run offline with mocked yt-dlp and ffmpeg:
+
+```bash
+python3 -m pytest -q
+```

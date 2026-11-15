@@ -1,0 +1,259 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "topic",
+    "videos",
+    "common_claims",
+    "contradictions",
+    "who_says_what",
+    "unique_points",
+    "verdict_overall"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "topic": {
+      "type": "string"
+    },
+    "videos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "run_dir",
+          "title",
+          "creator"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "run_dir": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "creator": {
+            "type": "string"
+          }
+        }
+      },
+      "minItems": 2
+    },
+    "common_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim",
+          "videos",
+          "verdict",
+          "note"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "videos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "t"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "t": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "true",
+              "mostly-true",
+              "half-true",
+              "mostly-false",
+              "false",
+              "not-enough-evidence",
+              "not-checkable",
+              "not-checked"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "contradictions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "topic",
+          "positions",
+          "resolution",
+          "evidence"
+        ],
+        "properties": {
+          "topic": {
+            "type": "string"
+          },
+          "positions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "t",
+                "says"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "t": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "says": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "resolution": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "url",
+                "publisher",
+                "retrieved",
+                "snippet"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "publisher": {
+                  "type": "string"
+                },
+                "retrieved": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "snippet": {
+                  "type": "string",
+                  "x-maxWords": 25,
+                  "pattern": "^\\s*(?:\\S+(?:\\s+|$)){0,25}$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "who_says_what": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "point",
+          "stances"
+        ],
+        "properties": {
+          "point": {
+            "type": "string"
+          },
+          "stances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "stance",
+                "t",
+                "note"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "stance": {
+                  "type": "string",
+                  "enum": [
+                    "supports",
+                    "opposes",
+                    "nuanced",
+                    "silent"
+                  ]
+                },
+                "t": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "unique_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "t",
+          "point"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "t": {
+            "type": "number",
+            "minimum": 0
+          },
+          "point": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "verdict_overall": {
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Video Intel comparison v1"
+}
