@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import inspect
 import json
+import math
 import os
 from optparse import OptParseError
 import sys
@@ -10,11 +12,12 @@ from contextlib import redirect_stdout
 import re
 import subprocess
 import tempfile
+import unicodedata
+import wave
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
-from youtube_transcript.files import sanitize_filename
 from youtube_transcript.markdown import CaptionSegment, build_markdown_document, merge_captions
 from youtube_transcript.urls import extract_video_id
 
@@ -145,11 +148,22 @@ def ydl_captions(info: dict, languages: list[str], cookies=None) -> dict | None:
     return None
 
 
+def ascii_slug(text: str) -> str:
+    """Use portable ASCII names, ending at a word boundary within 60 characters."""
+    text = text.translate(str.maketrans({"ı": "i", "İ": "i", "ş": "s", "ğ": "g",
+                                       "ç": "c", "ö": "o", "ü": "u"}))
+    text = "".join(char for char in unicodedata.normalize("NFKD", text)
+                   if not unicodedata.combining(char))
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    if len(slug) > 60:
+        # A single oversized word has no boundary to preserve.
+        slug = slug[:61].rsplit("-", 1)[0] if "-" in slug[:61] else slug[:60]
+    return slug
+
+
 def create_run_dir(root: Path, platform: str, title: str, video_id: str, today=None) -> Path:
     """Reserve a unique directory atomically, including across concurrent fetches."""
-    safe_title = sanitize_filename(title or video_id, max_length=90)
-    slug = re.sub(r"[^\w-]+", "-", safe_title, flags=re.UNICODE).strip("-_").lower() or "video"
-    slug = slug.encode("utf-8")[:160].decode("utf-8", errors="ignore").rstrip("-")
+    slug = ascii_slug(title or "") or ascii_slug(video_id) or "video"
     prefix = f"{today or date.today().isoformat()}-{platform}-{slug}"
     root = Path(root).expanduser()
     root.mkdir(parents=True, exist_ok=True)
@@ -180,6 +194,31 @@ def has_audio_stream(source: Path, info: dict) -> bool:
         raise VideoIntelError("NO_TRANSCRIPT", "Audio inspection requires ffprobe (install ffmpeg) on PATH") from exc
     except (subprocess.SubprocessError, ValueError, KeyError) as exc:
         raise VideoIntelError("NO_TRANSCRIPT", "ffprobe could not inspect downloaded audio") from exc
+
+
+def postprocess_asr_segments(segments: list[dict], duration=None) -> tuple[list[dict], dict]:
+    """Keep at most three equal adjacent segments and discard starts beyond the media."""
+    cleaned = []
+    previous = None
+    consecutive = 0
+    dropped_repeats = dropped_after_duration = 0
+    for segment in segments:
+        if duration is not None and segment["start"] > duration:
+            dropped_after_duration += 1
+            continue
+        normalized = " ".join(re.findall(r"\w+", unicodedata.normalize("NFKC", segment["text"]).casefold()))
+        consecutive = consecutive + 1 if normalized and normalized == previous else 1
+        previous = normalized
+        if consecutive > 3:
+            dropped_repeats += 1
+            continue
+        cleaned.append(segment)
+    stats = {}
+    if dropped_repeats or dropped_after_duration:
+        stats["dropped_repeats"] = dropped_repeats
+        if dropped_after_duration:
+            stats["dropped_after_duration"] = dropped_after_duration
+    return cleaned, stats
 
 
 def asr_transcript(url: str, run_dir: Path, language="auto", cookies=None, keep_audio=False, window=None,
@@ -226,19 +265,40 @@ def asr_transcript(url: str, run_dir: Path, language="auto", cookies=None, keep_
             raise VideoIntelError("NO_TRANSCRIPT", "ASR requires ffmpeg on PATH") from exc
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             raise VideoIntelError("NO_TRANSCRIPT", "ffmpeg could not convert audio to 16 kHz mono WAV") from exc
+        offset = window["start"] if window else 0
+        duration_limits = []
         try:
+            with wave.open(str(audio), "rb") as wav:
+                duration_limits.append(offset + wav.getnframes() / wav.getframerate())
+        except (OSError, EOFError, wave.Error):
+            # Extractor duration still bounds output if WAV inspection is unavailable.
+            duration_limits.append(info.get("duration"))
+        if window:
+            duration_limits.append(window["end"])
+        duration = min((value for value in duration_limits
+                        if type(value) in (int, float) and math.isfinite(value) and value >= 0), default=None)
+        try:
+            options = {"path_or_hf_repo": ASR_MODEL, "verbose": None,
+                       "language": None if language == "auto" else language,
+                       "condition_on_previous_text": False}
+            # **decode_options is not proof of support: unknown keys reach the decoder.
+            parameters = inspect.signature(mlx_whisper.transcribe).parameters
+            if "compression_ratio_threshold" in parameters:
+                options["compression_ratio_threshold"] = 2.4
+            if "hallucination_silence_threshold" in parameters and "word_timestamps" in parameters:
+                options.update(hallucination_silence_threshold=2.0, word_timestamps=True)
             with redirect_stdout(sys.stderr):
-                result = mlx_whisper.transcribe(str(audio), path_or_hf_repo=ASR_MODEL, verbose=None,
-                                                language=None if language == "auto" else language)
+                result = mlx_whisper.transcribe(str(audio), **options)
         except Exception as exc:
             raise VideoIntelError("NO_TRANSCRIPT", f"Local ASR failed: {exc}") from exc
-        offset = window["start"] if window else 0
         segments = [{"start": float(s["start"]) + offset, "end": float(s["end"]) + offset, "text": str(s["text"])}
                     for s in result.get("segments", []) if str(s.get("text", "")).strip()]
+        segments, stats = postprocess_asr_segments(segments, duration)
         if not segments and not allow_empty:
             raise VideoIntelError("NO_TRANSCRIPT", "ASR returned no speech segments")
         return {"source": "asr", "model": ASR_MODEL,
-                "language": result.get("language") or language, "segments": segments}
+                "language": result.get("language") or language, "segments": segments,
+                **({"asr_postprocess": stats} if stats else {})}
 
     if keep_audio:
         work_dir = run_dir / "audio"
